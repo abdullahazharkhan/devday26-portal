@@ -95,6 +95,33 @@ body {
   background-size: 100% auto;
   background-repeat: no-repeat;
   background-position: top center;
+
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #392828 #191111;
+}
+
+/* Webkit (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #191111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #392828;
+  border: 2px solid #191111;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D71D22;
+}
+
+::-webkit-scrollbar-corner {
+  background: #191111;
 }
 
 .dark {

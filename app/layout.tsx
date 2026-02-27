@@ -25,9 +25,9 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 
-
+                                                                      
 export const metadata: Metadata = {
-  title: "Developers Day 2026 – Portal",
+  title: "                                                                          ",
   description: "A portal for Developers Day 2026 team members to manage their tasks and collaborate effectively.",
 };
 
