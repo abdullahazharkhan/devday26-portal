@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
+import { useAuthStore } from '@/lib/stores/authStore'
 
 type Tab = {
     id: string
@@ -70,11 +71,14 @@ const teamConfig: Record<string, TeamConfig> = {
     },
 }
 
-// TODO: replace with real session data
-const placeholderUser = {
-    name: "JOHN_DOE",
-    email: "k230691@nu.edu.pk",
-    initials: "JD",
+function getInitials(fullName: string | null): string {
+    if (!fullName) return '?'
+    return fullName
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((w) => w[0].toUpperCase())
+        .join('')
 }
 
 export default function DashboardNav() {
@@ -82,7 +86,15 @@ export default function DashboardNav() {
     const searchParams = useSearchParams()
     const router = useRouter()
     const [dropdownOpen, setDropdownOpen] = useState(false)
+    const [isLoggingOut, setIsLoggingOut] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
+
+    const user      = useAuthStore((s) => s.user)
+    const clearUser = useAuthStore((s) => s.clearUser)
+
+    const displayName = (user?.fullName ?? user?.email ?? 'USER').toUpperCase()
+    const initials    = getInitials(user?.fullName ?? null)
+    const roleLabel   = user?.staffRole ?? '—'
 
     // pathname: /dashboard/<team>
     const segments = pathname.split('/').filter(Boolean)
@@ -142,10 +154,10 @@ export default function DashboardNav() {
                         className="flex items-center gap-2 sm:gap-3 group focus:outline-none"
                     >
                         <span className="hidden md:block text-xs tracking-widest text-[#C4C4C4] group-hover:text-white transition-colors duration-200 uppercase">
-                            {placeholderUser.name}
+                            {displayName}
                         </span>
                         <div className="w-8 h-8 sm:w-9 sm:h-9 bg-primaryred-muted border border-primaryred flex items-center justify-center text-xs font-bold text-primaryred shrink-0">
-                            {placeholderUser.initials}
+                            {initials}
                         </div>
                     </button>
 
@@ -155,26 +167,32 @@ export default function DashboardNav() {
                             <div className="p-4 sm:p-5 border-b border-primaryred-muted flex items-start gap-3 sm:gap-4">
                                 <div className="flex flex-col gap-1 min-w-0">
                                     <p className="text-white text-sm font-semibold tracking-wide truncate">
-                                        {placeholderUser.name}
+                                        {displayName}
                                     </p>
                                     <p className="text-[#C4C4C4] text-xs tracking-wide truncate">
-                                        {placeholderUser.email}
+                                        {user?.email ?? '—'}
                                     </p>
                                     <span className="mt-1 self-start text-[10px] tracking-widest text-primaryred border border-primaryred px-2 py-0.5">
-                                        {team?.label ?? '—'}
+                                        {roleLabel}
                                     </span>
                                 </div>
                             </div>
                             <div className="p-3">
                                 <button
-                                    onClick={() => {
+                                    disabled={isLoggingOut}
+                                    onClick={async () => {
+                                        setIsLoggingOut(true)
                                         setDropdownOpen(false)
-                                        // TODO: clear session/token
-                                        router.push('/login')
+                                        try {
+                                            await fetch('/api/auth/logout', { method: 'POST' })
+                                        } finally {
+                                            clearUser()
+                                            router.push('/login')
+                                        }
                                     }}
-                                    className="w-full text-xs tracking-widest text-primaryred border border-primaryred px-4 py-2 hover:bg-primaryred hover:text-white transition-colors duration-200"
+                                    className="w-full text-xs tracking-widest text-primaryred border border-primaryred px-4 py-2 hover:bg-primaryred hover:text-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    LOGOUT
+                                    {isLoggingOut ? 'LOGGING_OUT...' : 'LOGOUT'}
                                 </button>
                             </div>
                         </div>

@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useAuthStore } from '@/lib/stores/authStore'
 
 const loginSchema = z.object({
     email: z
@@ -15,7 +17,7 @@ const loginSchema = z.object({
         ),
     password: z
         .string()
-        .min(8, 'Password must be at least 8 characters'),
+        .min(1, 'Password is required'),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
@@ -25,8 +27,22 @@ const fieldClass = (hasError: boolean) =>
         hasError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-primaryred-muted focus:border-primaryred focus:ring-primaryred'
     } p-3 pr-20 text-white transition-all duration-200 focus:outline-none focus:ring-2 w-full`
 
+const ROLE_DASHBOARD: Record<string, string> = {
+    EXCOM:        '/dashboard/excom',
+    PR:           '/dashboard/pr',
+    GR:           '/dashboard/gr',
+    FOOD:         '/dashboard/food',
+    COMPETITIONS: '/dashboard/competitions',
+    SUPERADMIN:   '/dashboard/super-admin',
+}
+
 const Login = () => {
+    const router = useRouter()
+    const setUser = useAuthStore((s) => s.setUser)
+
     const [showPassword, setShowPassword] = useState(false)
+    const [isLoading, setIsLoading]       = useState(false)
+    const [serverError, setServerError]   = useState<string | null>(null)
 
     const {
         register,
@@ -36,8 +52,40 @@ const Login = () => {
         resolver: zodResolver(loginSchema),
     })
 
-    const onSubmit = (data: LoginFormData) => {
-        console.log('Login data:', data)
+    const onSubmit = async (data: LoginFormData) => {
+        setIsLoading(true)
+        setServerError(null)
+
+        try {
+            const res = await fetch('/api/auth/login', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(data),
+            })
+
+            const json = await res.json()
+
+            if (!res.ok) {
+                const msg =
+                    json?.message ??
+                    json?.errors?.[0]?.message ??
+                    'Login failed. Please try again.'
+                setServerError(msg)
+                return
+            }
+
+            // Hydrate Zustand store — persisted to localStorage automatically
+            setUser(json.data.user)
+
+            // Redirect to the correct team dashboard based on staffRole
+            const destination =
+                ROLE_DASHBOARD[json.data.user.staffRole ?? ''] ?? '/dashboard'
+            router.push(destination)
+        } catch {
+            setServerError('Could not reach the server. Please try again.')
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     return (
@@ -91,8 +139,18 @@ const Login = () => {
                     )}
                 </div>
 
-                <button type='submit' className="bg-primaryred text-white py-3 px-6 w-full sm:w-auto hover:bg-primaryred-muted transition-colors duration-300">
-                    LOGIN
+                {serverError && (
+                    <p className='text-red-500 text-xs tracking-wide border border-red-500 bg-red-500/10 px-4 py-2'>
+                        {serverError}
+                    </p>
+                )}
+
+                <button
+                    type='submit'
+                    disabled={isLoading}
+                    className="bg-primaryred text-white py-3 px-6 w-full sm:w-auto hover:bg-primaryred-muted transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {isLoading ? 'LOGGING_IN...' : 'LOGIN'}
                 </button>
 
                 <p className='text-sm text-foreground-muted text-center'>
