@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -40,8 +41,12 @@ const fieldClass = (hasError: boolean) =>
     } p-3 pr-20 text-white transition-all duration-200 focus:outline-none focus:ring-2 w-full`
 
 const Register = () => {
+    const router = useRouter()
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+    const [isLoading, setIsLoading] = useState(false)
+    const [serverError, setServerError] = useState<string | null>(null)
+    const [success, setSuccess] = useState(false)
 
     const {
         register,
@@ -51,8 +56,36 @@ const Register = () => {
         resolver: zodResolver(registerSchema),
     })
 
-    const onSubmit = (data: RegisterFormData) => {
-        console.log('Register data:', data)
+    const onSubmit = async (data: RegisterFormData) => {
+        setIsLoading(true)
+        setServerError(null)
+
+        try {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            })
+
+            const json = await res.json()
+
+            if (!res.ok) {
+                // Backend may return a message string or an errors array
+                const msg =
+                    json?.message ??
+                    json?.errors?.[0]?.message ??
+                    'Registration failed. Please try again.'
+                setServerError(msg)
+                return
+            }
+
+            setSuccess(true)
+            setTimeout(() => router.push('/login'), 2500)
+        } catch {
+            setServerError('Could not reach the server. Please try again.')
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     return (
@@ -173,10 +206,9 @@ const Register = () => {
                             </option>
                             <option value="excom">Excom</option>
                             <option value="pr">PR team</option>
-                            <option value="food">Food team</option>
-                            <option value="cs">CS Competitions team</option>
-                            <option value="ai">AI Competitions team</option>
                             <option value="gr">GR team</option>
+                            <option value="food">Food team</option>
+                            <option value="cs">Competitions team</option>
                         </select>
 
                         <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-primaryred'>
@@ -200,11 +232,24 @@ const Register = () => {
                     )}
                 </div>
 
+                {serverError && (
+                    <p className='text-red-500 text-xs tracking-wide border border-red-500 bg-red-500/10 px-4 py-2'>
+                        {serverError}
+                    </p>
+                )}
+
+                {success && (
+                    <p className='text-green-400 text-xs tracking-wide border border-green-500 bg-green-500/10 px-4 py-2'>
+                        Account created! Redirecting to login...
+                    </p>
+                )}
+
                 <button
                     type='submit'
-                    className="bg-primaryred text-white py-3 px-6 w-full sm:w-auto hover:bg-primaryred-muted transition-colors duration-300"
+                    disabled={isLoading || success}
+                    className="bg-primaryred text-white py-3 px-6 w-full sm:w-auto hover:bg-primaryred-muted transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    REGISTER
+                    {isLoading ? 'REGISTERING...' : 'REGISTER'}
                 </button>
 
                 <p className='text-sm text-foreground-muted text-center'>
