@@ -1,5 +1,6 @@
 import CreateAccountForm from './CreateAccountForm'
 import AssignActionsForm from './AssignActionsForm'
+import ViewAllUsersTable from './ViewAllUsersTable'
 import teamConfig from '../components/tabsConfig'
 
 const tabs = teamConfig['super-admin'].tabs.map((t) => ({ id: t.action, title: t.label.toUpperCase() }))
@@ -19,7 +20,9 @@ export default async function SuperAdminPage({ searchParams }: Props) {
                 <div className="w-12 h-0.5 bg-primaryred mt-2" />
             </div>
 
-            {activeTab.id === 'create-accounts' ? (
+            {activeTab.id === 'view-all-portal-users' ? (
+                <ViewAllUsersTable />
+            ) : activeTab.id === 'create-accounts' ? (
                 <CreateAccountForm />
             ) : activeTab.id === 'assign-actions-to-users' ? (
                 <AssignActionsForm />

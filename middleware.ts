@@ -58,6 +58,30 @@ function getRoleFromPayload(payload: Record<string, unknown>): string | null {
 export function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl
 
+    // redirect bare root to dashboard home
+    if (pathname === '/') {
+        const redirectUrl = req.nextUrl.clone()
+        redirectUrl.pathname = '/dashboard'
+        redirectUrl.search   = ''
+        return NextResponse.redirect(redirectUrl)
+    }
+
+    // if a logged-in user tries to visit auth pages, send them to dashboard
+    if (pathname === '/login' || pathname === '/register') {
+        const token = req.cookies.get('access_token')?.value
+        if (token) {
+            const payload = decodeJwtPayload(token)
+            const exp = payload?.exp as number | undefined
+            if (payload && !(exp && Date.now() / 1000 > exp)) {
+                const redirectUrl = req.nextUrl.clone()
+                redirectUrl.pathname = '/dashboard'
+                redirectUrl.search   = ''
+                return NextResponse.redirect(redirectUrl)
+            }
+        }
+        return NextResponse.next()
+    }
+
     // Only guard /dashboard/* routes
     if (!pathname.startsWith('/dashboard')) {
         return NextResponse.next()
@@ -146,5 +170,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-    matcher: ['/dashboard/:path*'],
+    matcher: ['/', '/login', '/register', '/dashboard/:path*'],
 }

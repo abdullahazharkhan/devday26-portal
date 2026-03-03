@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { ALL_ACTIONS, ROLE_DEFAULT_ACTIONS, teamConfig } from '../components/tabsConfig'
+import { apiFetch } from '@/lib/apiClient'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,7 +145,7 @@ function ActionPanel({
         setIsSaving(true)
         setMessage(null)
         try {
-            const res = await fetch(`/api/users/${user.id}/actions`, {
+            const res = await apiFetch(`/api/users/${user.id}/actions`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ actions: Array.from(checkedActions) }),
@@ -282,7 +283,7 @@ export default function AssignActionsForm() {
     const fetchUsers = useCallback(async () => {
         setIsLoading(true)
         try {
-            const res = await fetch('/api/users')
+            const res = await apiFetch('/api/users')
             const json = await res.json()
             if (json.success) setUsers(json.data)
         } catch {
