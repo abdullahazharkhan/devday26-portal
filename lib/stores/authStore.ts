@@ -11,6 +11,7 @@ export interface AuthUser {
     fullName:   string | null
     staffRole:  string | null    // 'EXCOM' | 'PR' | 'GR' | 'FOOD' | 'COMPETITIONS' | 'SUPERADMIN'
     isApproved: boolean | null
+    actions:    string[]         // kebab-case action IDs the user is authorised to perform
 }
 
 interface AuthState {

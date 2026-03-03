@@ -1,9 +1,6 @@
-const tabs = [
-    { id: 'view-stall-details', title: 'VIEW_STALL_DETAILS' },
-    { id: 'add-new-stall', title: 'ADD_NEW_STALL' },
-    { id: 'edit-stall', title: 'EDIT_STALL' },
-    { id: 'delete-stall', title: 'DELETE_STALL' },
-] as const
+import teamConfig from '../components/tabsConfig'
+
+const tabs = teamConfig.food.tabs.map((t) => ({ id: t.action, title: t.label.toUpperCase() }))
 
 type Props = {
     searchParams: Promise<{ tab?: string }>

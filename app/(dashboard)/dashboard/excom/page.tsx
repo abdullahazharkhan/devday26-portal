@@ -1,8 +1,6 @@
-const tabs = [
-    { id: 'view-all-members', title: 'VIEW_ALL_MEMBERS' },
-    { id: 'view-all-registrations', title: 'VIEW_ALL_REGISTRATIONS' },
-    { id: 'view-all-competitions', title: 'VIEW_ALL_COMPETITIONS' },
-] as const
+import teamConfig from '../components/tabsConfig'
+
+const tabs = teamConfig.excom.tabs.map((t) => ({ id: t.action, title: t.label.toUpperCase() }))
 
 type Props = {
     searchParams: Promise<{ tab?: string }>

@@ -5,71 +5,7 @@ import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { useAuthStore } from '@/lib/stores/authStore'
-
-type Tab = {
-    id: string
-    label: string
-}
-
-type TeamConfig = {
-    label: string
-    tabs: Tab[]
-}
-
-const teamConfig: Record<string, TeamConfig> = {
-    competitions: {
-        label: "COMPETITIONS",
-        tabs: [
-            { id: "view-registration-details", label: "View Registration Details" },
-            { id: "view-all-competitions", label: "View All Competitions" },
-            { id: "edit-competition-time", label: "Edit Competition Time" },
-        ],
-    },
-    food: {
-        label: "FOOD",
-        tabs: [
-            { id: "view-stall-details", label: "View Stall Details" },
-            { id: "add-new-stall", label: "Add New Stall" },
-            { id: "edit-stall", label: "Edit Stall" },
-            { id: "delete-stall", label: "Delete Stall" },
-        ],
-    },
-    gr: {
-        label: "GR",
-        tabs: [
-            { id: "view-all-companies", label: "View All Companies" },
-            { id: "add-new-company", label: "Add New Company" },
-            { id: "assign-booth", label: "Assign Booth" },
-            { id: "edit-company", label: "Edit Company" },
-            { id: "delete-company", label: "Delete Company" },
-        ],
-    },
-    pr: {
-        label: "PR",
-        tabs: [
-            { id: "view-all-registrations", label: "View All Registrations" },
-            { id: "create-new-registration", label: "Create New Registration" },
-            { id: "update-attendance", label: "Update Attendance" },
-        ],
-    },
-    "super-admin": {
-        label: "SUPER_ADMIN",
-        tabs: [
-            { id: "view-all-members", label: "View All Members" },
-            { id: "add-members-to-team", label: "Add Members to Team" },
-            { id: "create-accounts", label: "Create Accounts for Members" },
-            { id: "update-participant-record", label: "Update Participant Record" },
-        ],
-    },
-    excom: {
-        label: "EXCOM",
-        tabs: [
-            { id: "view-all-members", label: "View All Members" },
-            { id: "view-all-registrations", label: "View All Registrations" },
-            { id: "view-all-competitions", label: "View All Competitions" },
-        ],
-    },
-}
+import teamConfig from './tabsConfig'
 
 function getInitials(fullName: string | null): string {
     if (!fullName) return '?'
@@ -96,15 +32,20 @@ export default function DashboardNav() {
     const initials    = getInitials(user?.fullName ?? null)
     const roleLabel   = user?.staffRole ?? '—'
 
+    const userActions = user?.actions ?? []
+
     // pathname: /dashboard/<team>
     const segments = pathname.split('/').filter(Boolean)
     const teamSlug = segments[1] ?? ''
     const team = teamConfig[teamSlug]
-    const activeTab = searchParams.get('tab') ?? (team?.tabs[0]?.id ?? '')
 
-    const buildTabHref = (tabId: string) => {
+    // Filter tabs to only those the user has permission for
+    const visibleTabs = team?.tabs.filter((t) => userActions.includes(t.action)) ?? []
+    const activeTab = searchParams.get('tab') ?? (visibleTabs[0]?.action ?? '')
+
+    const buildTabHref = (tabAction: string) => {
         const params = new URLSearchParams(searchParams.toString())
-        params.set('tab', tabId)
+        params.set('tab', tabAction)
         return `/dashboard/${teamSlug}?${params.toString()}`
     }
 
@@ -201,15 +142,15 @@ export default function DashboardNav() {
             </div>
 
             {/* Tabs */}
-            {team && (
+            {team && visibleTabs.length > 0 && (
                 <div className="overflow-x-auto scrollbar-none">
                     <nav className="flex border-t border-primaryred-muted min-w-max">
-                        {team.tabs.map((tab, index) => {
-                            const isActive = activeTab === tab.id
+                        {visibleTabs.map((tab, index) => {
+                            const isActive = activeTab === tab.action
                             return (
                                 <Link
-                                    key={tab.id}
-                                    href={buildTabHref(tab.id)}
+                                    key={tab.action}
+                                    href={buildTabHref(tab.action)}
                                     className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2.5 sm:py-3 text-[10px] sm:text-[11px] tracking-[0.08rem] sm:tracking-[0.15rem] uppercase font-medium transition-colors duration-200 whitespace-nowrap border-b-2 ${
                                         isActive
                                             ? 'text-white bg-[#271C1C] border-primaryred'

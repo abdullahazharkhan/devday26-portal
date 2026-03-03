@@ -1,11 +1,8 @@
 import CreateAccountForm from './CreateAccountForm'
+import AssignActionsForm from './AssignActionsForm'
+import teamConfig from '../components/tabsConfig'
 
-const tabs = [
-    { id: 'view-all-members', title: 'VIEW_ALL_MEMBERS' },
-    { id: 'add-members-to-team', title: 'ADD_MEMBERS_TO_TEAM' },
-    { id: 'create-accounts', title: 'CREATE_ACCOUNTS_FOR_MEMBERS' },
-    { id: 'update-participant-record', title: 'UPDATE_PARTICIPANT_RECORD' },
-] as const
+const tabs = teamConfig['super-admin'].tabs.map((t) => ({ id: t.action, title: t.label.toUpperCase() }))
 
 type Props = {
     searchParams: Promise<{ tab?: string }>
@@ -24,6 +21,8 @@ export default async function SuperAdminPage({ searchParams }: Props) {
 
             {activeTab.id === 'create-accounts' ? (
                 <CreateAccountForm />
+            ) : activeTab.id === 'assign-actions-to-users' ? (
+                <AssignActionsForm />
             ) : (
                 <div className="border border-primaryred-muted bg-[#271C1C] p-5 sm:p-8 md:p-10 min-h-64 sm:min-h-80 flex items-center justify-center">
                     <p className="text-[#C4C4C4] text-xs tracking-widest">// CONTENT_COMING_SOON</p>

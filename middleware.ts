@@ -123,10 +123,13 @@ export function middleware(req: NextRequest) {
     // Unknown team slug → let Next.js handle (404)
     if (!requiredRole) return NextResponse.next()
 
+    // SUPERADMIN can access any dashboard
+    if (role === 'SUPERADMIN') return NextResponse.next()
+
     // Role matches → allow
     if (role === requiredRole) return NextResponse.next()
 
-    // Wrong role → redirect to the user's actual dashboard
+    // Wrong role → redirect to the user's own dashboard
     const correctHome = ROLE_HOME[role]
     if (correctHome) {
         const redirectUrl = req.nextUrl.clone()

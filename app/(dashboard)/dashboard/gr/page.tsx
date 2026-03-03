@@ -1,10 +1,6 @@
-const tabs = [
-    { id: 'view-all-companies', title: 'VIEW_ALL_COMPANIES' },
-    { id: 'add-new-company', title: 'ADD_NEW_COMPANY' },
-    { id: 'assign-booth', title: 'ASSIGN_BOOTH' },
-    { id: 'edit-company', title: 'EDIT_COMPANY' },
-    { id: 'delete-company', title: 'DELETE_COMPANY' },
-] as const
+import teamConfig from '../components/tabsConfig'
+
+const tabs = teamConfig.gr.tabs.map((t) => ({ id: t.action, title: t.label.toUpperCase() }))
 
 type Props = {
     searchParams: Promise<{ tab?: string }>
