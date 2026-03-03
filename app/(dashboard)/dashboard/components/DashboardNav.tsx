@@ -17,16 +17,51 @@ function getInitials(fullName: string | null): string {
         .join('')
 }
 
+function NavSkeleton() {
+    return (
+        <div className="bg-[#191111] border-b border-primaryred-muted">
+            <div className="grid grid-cols-2 sm:grid-cols-3 items-center px-4 sm:px-6 py-3 sm:py-4 gap-y-3 sm:gap-y-0">
+                {/* Logo placeholder */}
+                <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-7 h-7 sm:w-9 sm:h-9 animate-pulse bg-[#3a2525] rounded-sm" />
+                    <span className="font-bold text-xl sm:text-3xl tracking-[0.15rem] sm:tracking-widest text-primaryred leading-none select-none">
+                        DEVDAY&nbsp;&apos;26
+                    </span>
+                </div>
+                {/* Team name skeleton */}
+                <div className="col-span-2 sm:col-span-1 sm:col-start-2 row-start-2 sm:row-start-1 flex justify-center">
+                    <div className="w-36 h-6 animate-pulse bg-[#3a2525] rounded-sm" />
+                </div>
+                {/* Avatar skeleton */}
+                <div className="flex justify-end">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 animate-pulse bg-[#3a2525] rounded-sm" />
+                </div>
+            </div>
+            {/* Tab skeletons */}
+            <div className="border-t border-primaryred-muted flex">
+                {[120, 96, 108].map((w, i) => (
+                    <div key={i} className="px-3 sm:px-5 py-2.5 sm:py-3">
+                        <div className={`h-3 w-${w === 120 ? '24' : w === 96 ? '20' : '24'} animate-pulse bg-[#3a2525] rounded-sm`} style={{ width: w }} />
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
+
 export default function DashboardNav() {
     const pathname = usePathname()
     const searchParams = useSearchParams()
     const router = useRouter()
     const [dropdownOpen, setDropdownOpen] = useState(false)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
+    const [hasMounted, setHasMounted] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     const user      = useAuthStore((s) => s.user)
     const clearUser = useAuthStore((s) => s.clearUser)
+
+    useEffect(() => { setHasMounted(true) }, [])
 
     const displayName = (user?.fullName ?? user?.email ?? 'USER').toUpperCase()
     const initials    = getInitials(user?.fullName ?? null)
@@ -49,6 +84,7 @@ export default function DashboardNav() {
         return `/dashboard/${teamSlug}?${params.toString()}`
     }
 
+    // All hooks must be called before any conditional return
     useEffect(() => {
         const handler = (e: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -58,6 +94,9 @@ export default function DashboardNav() {
         document.addEventListener('mousedown', handler)
         return () => document.removeEventListener('mousedown', handler)
     }, [])
+
+    // Zustand hydrates from localStorage client-side: show skeleton until mounted
+    if (!hasMounted) return <NavSkeleton />
 
     return (
         <header className="bg-[#191111] border-b border-primaryred-muted">
