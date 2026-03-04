@@ -25,6 +25,8 @@ export interface DataTableProps<T = Record<string, unknown>> {
     emptyMessage?: string
     loading?: boolean
     skeletonRowCount?: number
+    /** If provided, rows become clickable and this handler is called on click */
+    onRowClick?: (row: T) => void
 }
 
 // ─── Skeleton helpers ─────────────────────────────────────────────────────────
@@ -54,6 +56,7 @@ export default function DataTable<T = Record<string, unknown>>({
     emptyMessage = '// NO_DATA_FOUND',
     loading = false,
     skeletonRowCount = 8,
+    onRowClick,
 }: DataTableProps<T>) {
     return (
         <div className="border border-primaryred-muted bg-[#191111] overflow-x-auto">
@@ -93,7 +96,8 @@ export default function DataTable<T = Record<string, unknown>>({
                         rows.map((row, rowIdx) => (
                             <tr
                                 key={keyExtractor(row)}
-                                className="border-b border-primaryred-muted last:border-b-0 hover:bg-[#1D1313] transition-colors duration-150"
+                                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                                className={`border-b border-primaryred-muted last:border-b-0 hover:bg-[#1D1313] transition-colors duration-150 ${onRowClick ? 'cursor-pointer' : ''}`}
                             >
                                 {columns.map((col) => (
                                     <td
