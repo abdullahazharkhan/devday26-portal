@@ -501,21 +501,77 @@ const COMP_COLUMNS: Column<RegistrationRow>[] = [
     },
 ]
 
-function CompetitionSection({
+// ─── Competitions loading skeleton ────────────────────────────────────────────
+
+function TabsSkeleton() {
+    return (
+        <div className="flex gap-2 border-b border-primaryred-muted pb-0 overflow-hidden">
+            {Array.from({ length: 5 }).map((_, i) => (
+                <div
+                    key={i}
+                    className="h-10 animate-pulse bg-[#3a2525] rounded-sm shrink-0"
+                    style={{ width: `${80 + i * 20}px` }}
+                />
+            ))}
+        </div>
+    )
+}
+
+// ─── Horizontal competition tabs ──────────────────────────────────────────────
+
+function CompetitionTabs({
+    competitions,
+    activeId,
+    onSelect,
+}: {
+    competitions: Competition[]
+    activeId: string
+    onSelect: (id: string) => void
+}) {
+    return (
+        <div className="relative">
+            {/* Scrollable tab strip */}
+            <div className="flex overflow-x-auto border-b border-primaryred-muted [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                {competitions.map((comp) => {
+                    const active = comp.id === activeId
+                    return (
+                        <button
+                            key={comp.id}
+                            onClick={() => onSelect(comp.id)}
+                            className={`relative shrink-0 px-4 sm:px-5 py-3 text-xs tracking-widest font-semibold transition-colors duration-150 whitespace-nowrap ${
+                                active
+                                    ? 'text-white bg-[#271C1C]'
+                                    : 'text-[#C4C4C4] hover:text-white hover:bg-[#1e1515]'
+                            }`}
+                        >
+                            {comp.name.toUpperCase()}
+                            {active && (
+                                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primaryred" />
+                            )}
+                        </button>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
+// ─── Per-competition table ────────────────────────────────────────────────────
+
+function CompetitionTable({
     competition,
     onRowClick,
 }: {
     competition: Competition
     onRowClick: (id: string) => void
 }) {
-    const [rows,        setRows]        = useState<RegistrationRow[]>([])
-    const [meta,        setMeta]        = useState<PaginationMeta>({ total: 0, page: 1, limit: 15, totalPages: 0 })
-    const [isLoading,   setIsLoading]   = useState(true)
-    const [isOpen,      setIsOpen]      = useState(true)
-    const [page,        setPage]        = useState(1)
-    const [searchInput, setSearchInput] = useState('')
-    const [search,      setSearch]      = useState('')
-    const [statusFilter,setStatusFilter]= useState('')
+    const [rows,         setRows]         = useState<RegistrationRow[]>([])
+    const [meta,         setMeta]         = useState<PaginationMeta>({ total: 0, page: 1, limit: 15, totalPages: 0 })
+    const [isLoading,    setIsLoading]    = useState(true)
+    const [page,         setPage]         = useState(1)
+    const [searchInput,  setSearchInput]  = useState('')
+    const [search,       setSearch]       = useState('')
+    const [statusFilter, setStatusFilter] = useState('')
 
     // Debounce search
     useEffect(() => {
@@ -551,136 +607,83 @@ function CompetitionSection({
 
     useEffect(() => { fetchRows() }, [fetchRows])
 
-    const totalLabel = isLoading
-        ? '...'
-        : `${meta.total} TEAM${meta.total !== 1 ? 'S' : ''}`
-
     return (
-        <div className="border border-primaryred-muted">
-            {/* Section header — click to collapse */}
-            <button
-                onClick={() => setIsOpen((o) => !o)}
-                className="w-full flex items-center justify-between gap-4 px-5 py-4 bg-[#271C1C] hover:bg-[#2e1e1e] transition-colors duration-200 group"
-            >
-                <div className="flex flex-wrap items-center gap-3 min-w-0">
-                    <h2 className="text-white font-bold tracking-widest text-sm sm:text-base truncate">
-                        {competition.name.toUpperCase()}
-                    </h2>
-                    {competition.compDay && (
-                        <span className="text-[10px] tracking-widest text-[#C4C4C4] border border-primaryred-muted px-2 py-0.5 shrink-0">
-                            {fmtDate(competition.compDay)}
-                        </span>
+        <div className="flex flex-col gap-0 border border-t-0 border-primaryred-muted">
+            {/* Competition meta bar */}
+            <div className="flex flex-wrap items-center gap-3 px-4 sm:px-5 py-3 bg-[#271C1C] border-b border-primaryred-muted">
+                {competition.compDay && (
+                    <span className="text-[10px] tracking-widest text-[#C4C4C4] border border-primaryred-muted px-2 py-0.5">
+                        {fmtDate(competition.compDay)}
+                    </span>
+                )}
+                <span className="text-[10px] tracking-widest text-primaryred border border-primaryred px-2 py-0.5">
+                    {isLoading ? '...' : `${meta.total} TEAM${meta.total !== 1 ? 'S' : ''}`}
+                </span>
+            </div>
+
+            {/* Search + status filter */}
+            <div className="flex flex-col sm:flex-row gap-3 px-4 py-3 border-b border-primaryred-muted bg-[#191111]">
+                {/* Search */}
+                <div className="relative flex-1">
+                    <input
+                        type="text"
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        placeholder="Search by team name or ref ID..."
+                        className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 pl-8 text-white text-xs tracking-wider placeholder-[#555] focus:outline-none w-full transition-colors duration-200"
+                    />
+                    <svg
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-primaryred pointer-events-none"
+                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0Z" />
+                    </svg>
+                    {searchInput && (
+                        <button
+                            onClick={() => setSearchInput('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#C4C4C4] hover:text-white text-xs"
+                        >
+                            ✕
+                        </button>
                     )}
-                    <span className="text-[10px] tracking-widest text-primaryred border border-primaryred px-2 py-0.5 shrink-0">
-                        {totalLabel}
+                </div>
+
+                {/* Status filter */}
+                <div className="relative sm:w-44">
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 pr-8 text-white text-xs tracking-widest focus:outline-none w-full appearance-none transition-colors duration-200"
+                    >
+                        <option value="">ALL STATUSES</option>
+                        <option value="PENDING_PAYMENT">PENDING PAYMENT</option>
+                        <option value="VERIFIED">VERIFIED</option>
+                        <option value="REJECTED">REJECTED</option>
+                    </select>
+                    <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-primaryred">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.24 4.5a.75.75 0 0 1-1.08 0l-4.24-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
+                        </svg>
                     </span>
                 </div>
-                {/* Chevron */}
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    className={`h-4 w-4 text-primaryred shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-                >
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.24 4.5a.75.75 0 0 1-1.08 0l-4.24-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
-                </svg>
-            </button>
+            </div>
 
-            {/* Collapsible body */}
-            {isOpen && (
-                <div className="flex flex-col gap-0">
+            <DataTable<RegistrationRow>
+                columns={COMP_COLUMNS}
+                rows={rows}
+                keyExtractor={(r) => r.id}
+                loading={isLoading}
+                skeletonRowCount={5}
+                emptyMessage="// NO_REGISTRATIONS_FOUND"
+                onRowClick={(row) => onRowClick(row.id)}
+            />
 
-                    {/* Per-section search + status filter */}
-                    <div className="flex flex-col sm:flex-row gap-3 px-4 py-3 border-b border-primaryred-muted bg-[#191111]">
-                        {/* Search */}
-                        <div className="relative flex-1">
-                            <input
-                                type="text"
-                                value={searchInput}
-                                onChange={(e) => setSearchInput(e.target.value)}
-                                placeholder="Search by team name or ref ID..."
-                                className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 pl-8 text-white text-xs tracking-wider placeholder-[#555] focus:outline-none w-full transition-colors duration-200"
-                            />
-                            <svg
-                                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-primaryred pointer-events-none"
-                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0Z" />
-                            </svg>
-                            {searchInput && (
-                                <button
-                                    onClick={() => setSearchInput('')}
-                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#C4C4C4] hover:text-white text-xs"
-                                >
-                                    ✕
-                                </button>
-                            )}
-                        </div>
-
-                        {/* Status filter */}
-                        <div className="relative sm:w-44">
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 pr-8 text-white text-xs tracking-widest focus:outline-none w-full appearance-none transition-colors duration-200"
-                            >
-                                <option value="">ALL STATUSES</option>
-                                <option value="PENDING_PAYMENT">PENDING PAYMENT</option>
-                                <option value="VERIFIED">VERIFIED</option>
-                                <option value="REJECTED">REJECTED</option>
-                            </select>
-                            <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-primaryred">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.24 4.5a.75.75 0 0 1-1.08 0l-4.24-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
-                                </svg>
-                            </span>
-                        </div>
-                    </div>
-
-                    <DataTable<RegistrationRow>
-                        columns={COMP_COLUMNS}
-                        rows={rows}
-                        keyExtractor={(r) => r.id}
-                        loading={isLoading}
-                        skeletonRowCount={5}
-                        emptyMessage="// NO_REGISTRATIONS_FOUND"
-                        onRowClick={(row) => onRowClick(row.id)}
-                    />
-
-                    {/* Per-section pagination */}
-                    {!isLoading && meta.totalPages > 1 && (
-                        <div className="px-4 py-3 border-t border-primaryred-muted bg-[#191111]">
-                            <Pagination meta={meta} onPageChange={setPage} />
-                        </div>
-                    )}
+            {/* Pagination */}
+            {!isLoading && meta.totalPages > 1 && (
+                <div className="px-4 py-3 border-t border-primaryred-muted bg-[#191111]">
+                    <Pagination meta={meta} onPageChange={setPage} />
                 </div>
             )}
-        </div>
-    )
-}
-
-// ─── Competitions loading skeleton ────────────────────────────────────────────
-
-function CompetitionsSkeleton() {
-    return (
-        <div className="flex flex-col gap-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="border border-primaryred-muted">
-                    <div className="px-5 py-4 bg-[#271C1C] flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="h-5 w-48 animate-pulse bg-[#3a2525] rounded-sm" />
-                            <div className="h-4 w-16 animate-pulse bg-[#3a2525] rounded-sm" />
-                            <div className="h-4 w-14 animate-pulse bg-[#3a2525] rounded-sm" />
-                        </div>
-                        <div className="h-4 w-4 animate-pulse bg-[#3a2525] rounded-sm" />
-                    </div>
-                    <div className="p-4 flex flex-col gap-2">
-                        {Array.from({ length: 4 }).map((_, j) => (
-                            <div key={j} className="h-8 animate-pulse bg-[#3a2525] rounded-sm" />
-                        ))}
-                    </div>
-                </div>
-            ))}
         </div>
     )
 }
@@ -688,8 +691,9 @@ function CompetitionsSkeleton() {
 // ─── Main: View Registrations Tab ─────────────────────────────────────────────
 
 export default function ViewRegistrationsTab() {
-    const [competitions, setCompetitions] = useState<Competition[]>([])
-    const [compsLoading, setCompsLoading] = useState(true)
+    const [competitions,  setCompetitions]  = useState<Competition[]>([])
+    const [compsLoading,  setCompsLoading]  = useState(true)
+    const [activeCompId,  setActiveCompId]  = useState<string | null>(null)
 
     // Detail panel
     const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -699,7 +703,12 @@ export default function ViewRegistrationsTab() {
         setCompsLoading(true)
         fetch('/api/registrations/competitions')
             .then((r) => r.json())
-            .then((json) => { if (json.success) setCompetitions(json.data) })
+            .then((json) => {
+                if (json.success) {
+                    setCompetitions(json.data)
+                    if (json.data.length > 0) setActiveCompId(json.data[0].id)
+                }
+            })
             .catch(() => {/* silent */})
             .finally(() => setCompsLoading(false))
     }, [])
@@ -714,27 +723,32 @@ export default function ViewRegistrationsTab() {
         )
     }
 
+    const activeComp = competitions.find((c) => c.id === activeCompId) ?? null
+
     // ── List view ──────────────────────────────────────────────────────────
     return (
-        <div className="flex flex-col gap-5">
-
-            {/* Competition sections */}
+        <div className="flex flex-col gap-0">
             {compsLoading ? (
-                <CompetitionsSkeleton />
+                <TabsSkeleton />
             ) : competitions.length === 0 ? (
                 <div className="border border-primaryred-muted bg-[#271C1C] p-10 flex items-center justify-center">
                     <p className="text-[#C4C4C4] text-xs tracking-widest">// NO_COMPETITIONS_FOUND</p>
                 </div>
             ) : (
-                <div className="flex flex-col gap-4">
-                    {competitions.map((comp) => (
-                        <CompetitionSection
-                            key={comp.id}
-                            competition={comp}
+                <>
+                    <CompetitionTabs
+                        competitions={competitions}
+                        activeId={activeCompId!}
+                        onSelect={setActiveCompId}
+                    />
+                    {activeComp && (
+                        <CompetitionTable
+                            key={activeComp.id}
+                            competition={activeComp}
                             onRowClick={setSelectedId}
                         />
-                    ))}
-                </div>
+                    )}
+                </>
             )}
         </div>
     )

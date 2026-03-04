@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Space_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import LoadingBar from './components/LoadingBar'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,6 +42,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${spaceMono.variable} ${spaceGrotesk.variable} antialiased`}
       >
+        {/* global loading bar */}
+        <LoadingBar />
         {children}
       </body>
     </html>

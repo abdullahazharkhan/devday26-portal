@@ -2,6 +2,7 @@
 import teamConfig from '../components/tabsConfig'
 import ViewRegistrationsTab from '../components/ViewRegistrationsTab'
 import CreateRegistrationTab from '../components/CreateRegistrationTab'
+import UpdateAttendanceTab from '../components/UpdateAttendanceTab'
 
 const tabs = teamConfig.pr.tabs.map((t) => ({ id: t.action, title: t.label.toUpperCase() }))
 
@@ -24,6 +25,8 @@ export default async function PRPage({ searchParams }: Props) {
                 <ViewRegistrationsTab />
             ) : activeTab.id === 'create-new-registration' ? (
                 <CreateRegistrationTab />
+            ) : activeTab.id === 'update-attendance' ? (
+                <UpdateAttendanceTab />
             ) : (
                 <div className="border border-primaryred-muted bg-[#271C1C] p-5 sm:p-8 md:p-10 min-h-64 sm:min-h-80 flex items-center justify-center">
                     <p className="text-[#C4C4C4] text-xs tracking-widest">// CONTENT_COMING_SOON</p>
