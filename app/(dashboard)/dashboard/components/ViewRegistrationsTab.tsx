@@ -31,6 +31,7 @@ interface RegistrationMember {
     cardIssued: boolean
     cardIssuedAt: string | null
     joinedAt: string
+    attendance: { status: boolean; method: string; markedAt: string } | null
     participant: {
         id: string
         fullName: string
@@ -219,6 +220,29 @@ function RegistrationDetailPanel({
             ),
             minWidth: '6rem',
         },
+        {
+            key: 'attendance',
+            header: 'ATTENDANCE',
+            render: (m) => {
+                if (!m.attendance) {
+                    return (
+                        <span className="text-[10px] tracking-widest border px-2 py-0.5 text-[#C4C4C4] border-primaryred-muted">
+                            NOT_MARKED
+                        </span>
+                    )
+                }
+                return (
+                    <span className={`text-[10px] tracking-widest border px-2 py-0.5 ${
+                        m.attendance.status
+                            ? 'text-green-400 border-green-600 bg-green-500/10'
+                            : 'text-red-400 border-red-600 bg-red-500/10'
+                    }`}>
+                        {m.attendance.status ? 'PRESENT' : 'ABSENT'}
+                    </span>
+                )
+            },
+            minWidth: '7rem',
+        },
     ]
 
     if (isLoading) return <DetailSkeleton />
@@ -280,6 +304,36 @@ function RegistrationDetailPanel({
                                 : `${detail.members.length} members`
                         } />
                     </div>
+                    {/* Attendance summary */}
+                    {(() => {
+                        const marked  = detail.members.filter((m) => m.attendance !== null)
+                        const present = detail.members.filter((m) => m.attendance?.status === true)
+                        const total   = detail.members.length
+                        if (marked.length === 0) {
+                            return (
+                                <div className="flex items-center gap-2 pt-1">
+                                    <span className="text-[10px] tracking-[0.2em] text-[#C4C4C4]">ATTENDANCE:</span>
+                                    <span className="text-[10px] tracking-widest text-[#C4C4C4] border border-primaryred-muted px-2 py-0.5">
+                                        NOT_MARKED
+                                    </span>
+                                </div>
+                            )
+                        }
+                        return (
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <span className="text-[10px] tracking-[0.2em] text-[#C4C4C4]">ATTENDANCE:</span>
+                                <span className={`text-[10px] tracking-widest border px-2 py-0.5 ${
+                                    present.length === total
+                                        ? 'text-green-400 border-green-600 bg-green-500/10'
+                                        : present.length === 0
+                                            ? 'text-red-400 border-red-600 bg-red-500/10'
+                                            : 'text-yellow-400 border-yellow-600 bg-yellow-500/10'
+                                }`}>
+                                    {present.length}/{total} PRESENT
+                                </span>
+                            </div>
+                        )
+                    })()}
                 </div>
 
                 {/* Payment info */}
