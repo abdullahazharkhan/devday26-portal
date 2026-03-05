@@ -76,10 +76,18 @@ export async function fetchWithAuth(
     backendPath: string,
     init: RequestInit = {}
 ): Promise<FetchWithAuthResult> {
-    const accessToken = req.cookies.get('access_token')?.value
+    let accessToken = req.cookies.get('access_token')?.value
+    let prefetchCookies: string[] = []
 
+    // ── No access_token: try to refresh before giving up ──────────────────────
     if (!accessToken) {
-        return { data: { success: false, message: 'Not authenticated.' }, status: 401, setCookieHeaders: [] }
+        const { newAccessToken, setCookieHeaders } = await attemptRefresh(req)
+        if (!newAccessToken) {
+            // Refresh also failed — session is completely dead
+            return { data: { success: false, message: 'Not authenticated.' }, status: 401, setCookieHeaders: [] }
+        }
+        accessToken    = newAccessToken
+        prefetchCookies = setCookieHeaders
     }
 
     const headers = new Headers((init.headers as HeadersInit | undefined) ?? {})
@@ -90,10 +98,10 @@ export async function fetchWithAuth(
     let data = await res.json()
 
     if (res.status !== 401) {
-        return { data, status: res.status, setCookieHeaders: [] }
+        return { data, status: res.status, setCookieHeaders: prefetchCookies }
     }
 
-    // ── 401: try to refresh ───────────────────────────────────────────────────
+    // ── 401: try to refresh (access_token became stale mid-session) ───────────
     const { newAccessToken, setCookieHeaders } = await attemptRefresh(req)
 
     if (!newAccessToken) {

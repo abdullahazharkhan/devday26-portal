@@ -2,22 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // ─── Route → required role mapping ───────────────────────────────────────────
 const ROUTE_ROLE: Record<string, string> = {
-    'competitions': 'COMPETITIONS',
-    'food':         'FOOD',
-    'gr':           'GR',
-    'pr':           'PR',
-    'excom':        'EXCOM',
-    'super-admin':  'SUPERADMIN',
+    'competitions':           'COMPETITIONS',
+    'food':                   'FOOD',
+    'gr':                     'GR',
+    'pr':                     'PR',
+    'excom':                  'EXCOM',
+    'super-admin':            'SUPERADMIN',
+    'ambassador-management':  'AMBASSADOR_MANAGEMENT',
 }
 
 // Role → home dashboard (used for wrong-role redirects)
 const ROLE_HOME: Record<string, string> = {
-    COMPETITIONS: '/dashboard/competitions',
-    FOOD:         '/dashboard/food',
-    GR:           '/dashboard/gr',
-    PR:           '/dashboard/pr',
-    EXCOM:        '/dashboard/excom',
-    SUPERADMIN:   '/dashboard/super-admin',
+    COMPETITIONS:          '/dashboard/competitions',
+    FOOD:                  '/dashboard/food',
+    GR:                    '/dashboard/gr',
+    PR:                    '/dashboard/pr',
+    EXCOM:                 '/dashboard/excom',
+    SUPERADMIN:            '/dashboard/super-admin',
+    AMBASSADOR_MANAGEMENT: '/dashboard/ambassador-management',
 }
 
 // ─── JWT decoder (no signature verification — edge-safe, no crypto needed) ───
@@ -55,7 +57,7 @@ function getRoleFromPayload(payload: Record<string, unknown>): string | null {
 }
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl
 
     // redirect bare root to dashboard home
@@ -89,8 +91,49 @@ export function middleware(req: NextRequest) {
 
     const token = req.cookies.get('access_token')?.value
 
-    // No token → send to login
+    // No access_token — attempt a silent refresh before sending to login
     if (!token) {
+        const refreshToken = req.cookies.get('refresh_token')?.value
+
+        if (!refreshToken) {
+            const loginUrl = req.nextUrl.clone()
+            loginUrl.pathname = '/login'
+            loginUrl.search   = ''
+            return NextResponse.redirect(loginUrl)
+        }
+
+        // Attempt token refresh inline (middleware can use fetch)
+        try {
+            const backendUrl = process.env.BACKEND_URL ?? 'http://localhost:5000'
+            const refreshRes = await fetch(`${backendUrl}/auth/refresh`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ refreshToken }),
+            })
+
+            if (refreshRes.ok) {
+                const json = await refreshRes.json() as {
+                    success:      boolean
+                    accessToken:  string
+                    refreshToken: string
+                    expiresIn:    number
+                }
+
+                if (json.success) {
+                    const isProduction = process.env.NODE_ENV === 'production'
+                    const secure = isProduction ? '; Secure' : ''
+
+                    // Allow through and set the refreshed cookies on the response
+                    const response = NextResponse.next()
+                    response.headers.append('Set-Cookie', `access_token=${json.accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${json.expiresIn ?? 3600}${secure}`)
+                    response.headers.append('Set-Cookie', `refresh_token=${json.refreshToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}${secure}`)
+                    return response
+                }
+            }
+        } catch {
+            // Refresh request failed (backend down, network issue) — send to login
+        }
+
         const loginUrl = req.nextUrl.clone()
         loginUrl.pathname = '/login'
         loginUrl.search   = ''

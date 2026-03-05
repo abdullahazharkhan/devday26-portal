@@ -209,6 +209,7 @@ const Register = () => {
                             <option value="gr">GR team</option>
                             <option value="food">Food team</option>
                             <option value="cs">Competitions team</option>
+                            <option value="ambassador-management">Ambassador Management</option>
                         </select>
 
                         <span className='pointer-events-none absolute inset-y-0 right-3 flex items-center text-primaryred'>

@@ -30,6 +30,8 @@ export const ALL_ACTIONS: Record<string, { label: string }> = {
     'assign-actions-to-users':   { label: 'Assign Actions to Users' },
     'create-accounts':           { label: 'Create Accounts for Users' },
     'update-participant-record': { label: 'Update Participant Record' },
+    'view-ambassador-dashboard': { label: 'View Ambassador Dashboard' },
+    'manage-ambassadors':        { label: 'Manage Ambassadors' },
 }
 
 // ─── Default actions per StaffRole ───────────────────────────────────────────
@@ -60,6 +62,10 @@ export const ROLE_DEFAULT_ACTIONS: Record<string, string[]> = {
     EXCOM: [
         'view-all-portal-users',
         'view-registration-details',
+    ],
+    AMBASSADOR_MANAGEMENT: [
+        'view-ambassador-dashboard',
+        'manage-ambassadors',
     ],
     SUPERADMIN: Object.keys(ALL_ACTIONS),
 }
@@ -117,6 +123,13 @@ export const teamConfig: Record<string, TeamConfig> = {
         tabs: [
             { action: 'view-all-portal-users',     label: 'View All Portal Users' },
             { action: 'view-registration-details', label: 'View All Registrations' },
+        ],
+    },
+    'ambassador-management': {
+        label: 'AMBASSADOR_MANAGEMENT',
+        tabs: [
+            { action: 'view-ambassador-dashboard', label: 'View Ambassador Dashboard' },
+            { action: 'manage-ambassadors',        label: 'Manage Ambassadors' },
         ],
     },
 }
