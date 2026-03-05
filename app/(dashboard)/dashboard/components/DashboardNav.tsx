@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { useAuthStore } from '@/lib/stores/authStore'
-import teamConfig from './tabsConfig'
+import teamConfig, { ALL_ACTIONS } from './tabsConfig'
 
 function getInitials(fullName: string | null): string {
     if (!fullName) return '?'
@@ -60,8 +60,21 @@ export default function DashboardNav() {
 
     const user      = useAuthStore((s) => s.user)
     const clearUser = useAuthStore((s) => s.clearUser)
+    const setUser   = useAuthStore((s) => s.setUser)
 
     useEffect(() => { setHasMounted(true) }, [])
+
+    // On every dashboard load, silently fetch the latest user profile so any
+    // permissions granted by a super-admin are reflected without a re-login.
+    useEffect(() => {
+        if (!hasMounted) return
+        fetch('/api/auth/me')
+            .then((r) => r.json())
+            .then((json) => {
+                if (json.success && json.data) setUser(json.data)
+            })
+            .catch(() => { /* silent — stale data is better than an error */ })
+    }, [hasMounted, setUser])
 
     const displayName = (user?.fullName ?? user?.email ?? 'USER').toUpperCase()
     const initials    = getInitials(user?.fullName ?? null)
@@ -72,10 +85,14 @@ export default function DashboardNav() {
     // pathname: /dashboard/<team>
     const segments = pathname.split('/').filter(Boolean)
     const teamSlug = segments[1] ?? ''
-    const team = teamConfig[teamSlug]
+    const team = teamConfig[teamSlug]  // used only for the centre heading label
 
-    // Filter tabs to only those the user has permission for
-    const visibleTabs = team?.tabs.filter((t) => userActions.includes(t.action)) ?? []
+    // Show every action the user holds, in the canonical order defined by ALL_ACTIONS,
+    // regardless of which team dashboard they are on.  This ensures cross-team actions
+    // granted by a super-admin appear as tabs immediately without a re-login.
+    const visibleTabs = Object.entries(ALL_ACTIONS)
+        .filter(([action]) => userActions.includes(action))
+        .map(([action, { label }]) => ({ action, label }))
     const activeTab = searchParams.get('tab') ?? (visibleTabs[0]?.action ?? '')
 
     const buildTabHref = (tabAction: string) => {
@@ -181,7 +198,7 @@ export default function DashboardNav() {
             </div>
 
             {/* Tabs */}
-            {team && visibleTabs.length > 0 && (
+            {visibleTabs.length > 0 && (
                 <div className="overflow-x-auto scrollbar-none">
                     <nav className="flex border-t border-primaryred-muted min-w-max">
                         {visibleTabs.map((tab, index) => {
