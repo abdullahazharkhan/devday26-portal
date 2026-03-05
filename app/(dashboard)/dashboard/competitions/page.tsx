@@ -1,5 +1,6 @@
 import teamConfig from '../components/tabsConfig'
 import ViewRegistrationsTab from '../components/ViewRegistrationsTab'
+import EditCompetition from './EditCompetition'
 
 const tabs = teamConfig.competitions.tabs.map((t) => ({ id: t.action, title: t.label.toUpperCase() }))
 
@@ -20,6 +21,8 @@ export default async function CompetitionsPage({ searchParams }: Props) {
 
             {activeTab.id === 'view-registration-details' ? (
                 <ViewRegistrationsTab />
+            ) : activeTab.id === 'edit-competition' ? (
+                <EditCompetition />
             ) : (
                 <div className="border border-primaryred-muted bg-[#271C1C] p-5 sm:p-8 md:p-10 min-h-64 sm:min-h-80 flex items-center justify-center">
                     <p className="text-[#C4C4C4] text-xs tracking-widest">// CONTENT_COMING_SOON</p>

@@ -14,8 +14,7 @@ export type TeamConfig = {
 
 export const ALL_ACTIONS: Record<string, { label: string }> = {
     'view-registration-details': { label: 'View Registration Details' },
-    'view-all-competitions':     { label: 'View All Competitions' },
-    'edit-competition-time':     { label: 'Edit Competition Time' },
+    'edit-competition':         { label: 'Edit Competition' },
     'view-stall-details':        { label: 'View Stall Details' },
     'add-new-stall':             { label: 'Add New Stall' },
     'edit-stall':                { label: 'Edit Stall' },
@@ -38,8 +37,7 @@ export const ALL_ACTIONS: Record<string, { label: string }> = {
 export const ROLE_DEFAULT_ACTIONS: Record<string, string[]> = {
     COMPETITIONS: [
         'view-registration-details',
-        'view-all-competitions',
-        'edit-competition-time',
+        'edit-competition',
     ],
     FOOD: [
         'view-stall-details',
@@ -62,7 +60,6 @@ export const ROLE_DEFAULT_ACTIONS: Record<string, string[]> = {
     EXCOM: [
         'view-all-portal-users',
         'view-registration-details',
-        'view-all-competitions',
     ],
     SUPERADMIN: Object.keys(ALL_ACTIONS),
 }
@@ -76,8 +73,7 @@ export const teamConfig: Record<string, TeamConfig> = {
         label: 'COMPETITIONS',
         tabs: [
             { action: 'view-registration-details', label: 'View Registration Details' },
-            { action: 'view-all-competitions',     label: 'View All Competitions' },
-            { action: 'edit-competition-time',     label: 'Edit Competition Time' },
+            { action: 'edit-competition', label: 'Edit Competition' },
         ],
     },
     food: {
@@ -121,7 +117,6 @@ export const teamConfig: Record<string, TeamConfig> = {
         tabs: [
             { action: 'view-all-portal-users',     label: 'View All Portal Users' },
             { action: 'view-registration-details', label: 'View All Registrations' },
-            { action: 'view-all-competitions',     label: 'View All Competitions' },
         ],
     },
 }
