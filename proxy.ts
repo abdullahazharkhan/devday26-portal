@@ -57,7 +57,7 @@ function getRoleFromPayload(payload: Record<string, unknown>): string | null {
 }
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
     const { pathname } = req.nextUrl
 
     // redirect bare root to dashboard home
