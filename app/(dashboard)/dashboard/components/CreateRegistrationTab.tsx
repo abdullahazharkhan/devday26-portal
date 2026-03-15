@@ -41,7 +41,7 @@ const memberSchema = z.object({
 const formSchema = z.object({
     teamName:      z.string().min(1, 'Team name is required'),
     competitionId: z.string().min(1, 'Please select a competition'),
-    referenceId:   z.string().min(1, 'Reference ID is required'),
+    referenceId:   z.string().optional(),
     paymentMethod: z.enum(['BANK_TRANSFER', 'EASYPAISA', 'JAZZCASH', 'CARD', 'CASH'], {
         message: 'Please select a payment method',
     }),
@@ -481,7 +481,7 @@ export default function CreateRegistrationTab() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         {/* Reference ID */}
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] tracking-[0.2em] text-[#C4C4C4]">REFERENCE_ID *</label>
+                            <label className="text-[10px] tracking-[0.2em] text-[#C4C4C4]">REFERENCE_ID </label>
                             <input
                                 {...register('referenceId')}
                                 placeholder="Enter reference ID"

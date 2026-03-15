@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { apiFetch } from '@/lib/apiClient'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -265,11 +265,6 @@ export default function UpdateAttendanceTab() {
     const [error, setError] = useState<string | null>(null)
 
     const handleSearch = useCallback(async () => {
-        if (!searchQuery.trim()) {
-            setTeams([])
-            setError(null)
-            return
-        }
 
         setSearching(true)
         setError(null)
@@ -342,6 +337,8 @@ export default function UpdateAttendanceTab() {
             handleSearch()
         }
     }
+
+    useEffect(()=>{handleSearch()},[])
 
     return (
         <div className="border border-primaryred-muted bg-[#271C1C] p-4 sm:p-6 md:p-8 lg:p-10 space-y-6">
