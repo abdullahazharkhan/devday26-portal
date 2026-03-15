@@ -5,6 +5,8 @@ import DataTable, { Column } from './DataTable'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type PaymentStatus = 'PENDING_PAYMENT' | 'VERIFIED' | 'REJECTED'
+
 interface Competition {
     id: string
     name: string
@@ -18,7 +20,7 @@ interface RegistrationRow {
     id: string
     name: string
     referenceId: string
-    paymentStatus: 'PENDING_PAYMENT' | 'VERIFIED' | 'REJECTED'
+    paymentStatus: PaymentStatus
     paymentMethod: string | null
     competition: { id: string; name: string; compDay: string; fee: string }
     memberCount: number
@@ -46,7 +48,7 @@ interface RegistrationDetail {
     id: string
     name: string
     referenceId: string
-    paymentStatus: string
+    paymentStatus: PaymentStatus
     paymentMethod: string | null
     paymentDate: string | null
     declaredTID: string | null
@@ -148,6 +150,13 @@ function RegistrationDetailPanel({
     const [detail, setDetail]     = useState<RegistrationDetail | null>(null)
     const [isLoading, setLoading] = useState(true)
     const [error, setError]       = useState<string | null>(null)
+
+    const [isEditingPayment, setIsEditingPayment] = useState(false)
+    const [paymentUpdateStatus, setPaymentUpdateStatus] = useState<'PENDING_PAYMENT' | 'VERIFIED' | 'REJECTED'>('PENDING_PAYMENT')
+    const [paymentUpdateNote, setPaymentUpdateNote] = useState('')
+    const [isUpdatingPayment, setIsUpdatingPayment] = useState(false)
+    const [paymentUpdateError, setPaymentUpdateError] = useState<string | null>(null)
+    const [paymentUpdateSuccess, setPaymentUpdateSuccess] = useState<string | null>(null)
 
     useEffect(() => {
         setLoading(true)
@@ -357,6 +366,115 @@ function RegistrationDetailPanel({
                             VIEW_PAYMENT_PROOF ↗
                         </a>
                     )}
+
+                    <div className="flex flex-col gap-2">
+                        {paymentUpdateSuccess && (
+                            <div className="text-green-400 text-xs tracking-widest">{paymentUpdateSuccess}</div>
+                        )}
+                        {paymentUpdateError && (
+                            <div className="text-red-400 text-xs tracking-widest">{paymentUpdateError}</div>
+                        )}
+
+                        {isEditingPayment ? (
+                            <div className="border border-primaryred-muted bg-[#1f1515] p-4 rounded-sm">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] tracking-widest text-primaryred">STATUS</label>
+                                    <select
+                                        value={paymentUpdateStatus}
+                                        onChange={(e) => setPaymentUpdateStatus(e.target.value as PaymentStatus)}
+                                        className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 text-white text-xs tracking-widest focus:outline-none w-full appearance-none transition-colors duration-200"
+                                    >
+                                        <option value="PENDING_PAYMENT">PENDING PAYMENT</option>
+                                        <option value="VERIFIED">VERIFIED</option>
+                                        <option value="REJECTED">REJECTED</option>
+                                    </select>
+                                </div>
+                                <div className="flex flex-col gap-2 mt-3">
+                                    <label className="text-[10px] tracking-widest text-primaryred">NOTE</label>
+                                    <textarea
+                                        value={paymentUpdateNote}
+                                        onChange={(e) => setPaymentUpdateNote(e.target.value)}
+                                        rows={3}
+                                        className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 text-white text-xs tracking-widest focus:outline-none w-full transition-colors duration-200 resize-none"
+                                        placeholder="Add a note for the user..."
+                                    />
+                                </div>
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                    <button
+                                        onClick={async () => {
+                                            if (!detail) return
+                                            setIsUpdatingPayment(true)
+                                            setPaymentUpdateError(null)
+                                            setPaymentUpdateSuccess(null)
+
+                                            try {
+                                                const res = await fetch(
+                                                    `/api/registrations/${detail.id}/payment-status`,
+                                                    {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            status: paymentUpdateStatus,
+                                                            note: paymentUpdateNote,
+                                                        }),
+                                                    }
+                                                )
+                                                const json = await res.json()
+                                                if (!json.success) {
+                                                    throw new Error(json.message ?? 'Failed to update payment status.')
+                                                }
+
+                                                if (json.data) {
+                                                    setDetail((prev) => {
+                                                        if (!prev || typeof json.data !== 'object') return json.data
+                                                        return { ...prev, ...json.data }
+                                                    })
+                                                }
+
+                                                setPaymentUpdateSuccess('Payment status updated successfully.')
+                                                setIsEditingPayment(false)
+                                            } catch (err) {
+                                                setPaymentUpdateError(
+                                                    (err as Error).message ?? 'Failed to update payment status.'
+                                                )
+                                            } finally {
+                                                setIsUpdatingPayment(false)
+                                            }
+                                        }}
+                                        disabled={isUpdatingPayment}
+                                        className="text-xs tracking-widest text-primaryred border border-primaryred px-4 py-2 hover:bg-primaryred hover:text-white transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        {isUpdatingPayment ? 'UPDATING…' : 'SAVE'}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setIsEditingPayment(false)
+                                            setPaymentUpdateError(null)
+                                            setPaymentUpdateSuccess(null)
+                                        }}
+                                        type="button"
+                                        className="text-xs tracking-widest text-[#C4C4C4] border border-primaryred-muted px-4 py-2 hover:border-primaryred hover:text-white transition-colors duration-200"
+                                        disabled={isUpdatingPayment}
+                                    >
+                                        CANCEL
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => {
+                                    setIsEditingPayment(true)
+                                    setPaymentUpdateError(null)
+                                    setPaymentUpdateSuccess(null)
+                                    setPaymentUpdateStatus(detail.paymentStatus)
+                                    setPaymentUpdateNote('')
+                                }}
+                                className="self-start text-xs tracking-widest text-primaryred border border-primaryred px-4 py-2 hover:bg-primaryred hover:text-white transition-colors duration-200"
+                            >
+                                UPDATE PAYMENT STATUS
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
