@@ -12,6 +12,8 @@ interface Competition {
     name: string
     compDay: string
     fee: string
+    earlyBirdFee: string
+    earlyBirdLimit: number
     minTeamSize: number
     maxTeamSize: number
     startTime: string
@@ -46,6 +48,7 @@ const formSchema = z.object({
         message: 'Please select a payment method',
     }),
     amountPaid:    z.string().min(1, 'Amount paid is required'),
+    isEarlyBird:   z.boolean(),
     members:       z.array(memberSchema).min(1, 'At least one member is required'),
 })
 
@@ -258,6 +261,7 @@ export default function CreateRegistrationTab() {
             referenceId: '',
             paymentMethod: undefined,
             amountPaid: '',
+            isEarlyBird: false,
             members: [{ fullName: '', email: '', cnic: '', phone: '', institution: '', isLeader: true }],
         },
     })
@@ -265,14 +269,23 @@ export default function CreateRegistrationTab() {
     const { fields, append, remove } = useFieldArray({ control, name: 'members' })
 
     const selectedCompId = watch('competitionId')
+    const isEarlyBird = watch('isEarlyBird')
     const selectedComp = competitions.find((c) => c.id === selectedCompId)
 
-    // Auto-set amountPaid when competition changes
+    // Auto-set amountPaid when competition or early-bird choice changes
     useEffect(() => {
         if (selectedComp) {
-            setValue('amountPaid', String(selectedComp.fee))
+            if (selectedComp.earlyBirdLimit <= 0) {
+                setValue('isEarlyBird', false)
+            }
+
+            const amount = isEarlyBird && selectedComp.earlyBirdLimit > 0
+                ? selectedComp.earlyBirdFee
+                : selectedComp.fee
+
+            setValue('amountPaid', String(amount))
         }
-    }, [selectedComp, setValue])
+    }, [selectedComp, isEarlyBird, setValue])
 
     // ── Fetch competitions ─────────────────────────────────────────────────
     useEffect(() => {
@@ -535,6 +548,33 @@ export default function CreateRegistrationTab() {
                             VERIFIED
                         </span>
                     </div>
+
+                    {/* Early bird option */}
+                    {selectedComp && selectedComp.earlyBirdLimit > 0 && (
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[10px] tracking-[0.2em] text-[#C4C4C4]">EARLY BIRD *</label>
+                            <div className="flex items-center gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        checked={isEarlyBird === true}
+                                        onChange={() => setValue('isEarlyBird', true)}
+                                        className="w-4 h-4 accent-primaryred cursor-pointer"
+                                    />
+                                    <span className="text-white text-xs tracking-wide">YES</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        checked={isEarlyBird === false}
+                                        onChange={() => setValue('isEarlyBird', false)}
+                                        className="w-4 h-4 accent-primaryred cursor-pointer"
+                                    />
+                                    <span className="text-white text-xs tracking-wide">NO</span>
+                                </label>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Section: Team Members ──────────────────────────────────── */}

@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import DataTable, { Column } from './DataTable'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type PaymentStatus = 'PENDING_PAYMENT' | 'VERIFIED' | 'REJECTED'
+type PaymentStatus = 'PENDING_PAYMENT' | 'VERIFIED' | 'ONHOLD' | 'REJECTED'
 
 interface Competition {
     id: string
@@ -57,6 +58,7 @@ interface RegistrationDetail {
     createdAt: string
     updatedAt: string
     competition: Competition
+    note: string
     members: RegistrationMember[]
 }
 
@@ -152,7 +154,7 @@ function RegistrationDetailPanel({
     const [error, setError]       = useState<string | null>(null)
 
     const [isEditingPayment, setIsEditingPayment] = useState(false)
-    const [paymentUpdateStatus, setPaymentUpdateStatus] = useState<'PENDING_PAYMENT' | 'VERIFIED' | 'REJECTED'>('PENDING_PAYMENT')
+    const [paymentUpdateStatus, setPaymentUpdateStatus] = useState<PaymentStatus>('PENDING_PAYMENT')
     const [paymentUpdateNote, setPaymentUpdateNote] = useState('')
     const [isUpdatingPayment, setIsUpdatingPayment] = useState(false)
     const [paymentUpdateError, setPaymentUpdateError] = useState<string | null>(null)
@@ -368,15 +370,16 @@ function RegistrationDetailPanel({
                     )}
 
                     <div className="flex flex-col gap-2">
-                        {paymentUpdateSuccess && (
-                            <div className="text-green-400 text-xs tracking-widest">{paymentUpdateSuccess}</div>
-                        )}
-                        {paymentUpdateError && (
-                            <div className="text-red-400 text-xs tracking-widest">{paymentUpdateError}</div>
-                        )}
-
-                        {isEditingPayment ? (
-                            <div className="border border-primaryred-muted bg-[#1f1515] p-4 rounded-sm">
+                        <AnimatePresence mode="wait">
+                          {isEditingPayment ? (
+                            <motion.div
+                              key="edit-form"
+                              className="border border-primaryred-muted bg-[#1f1515] p-4 rounded-sm"
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.3, ease: 'easeOut' }}
+                            >
                                 <div className="flex flex-col gap-2">
                                     <label className="text-[10px] tracking-widest text-primaryred">STATUS</label>
                                     <select
@@ -386,19 +389,30 @@ function RegistrationDetailPanel({
                                     >
                                         <option value="PENDING_PAYMENT">PENDING PAYMENT</option>
                                         <option value="VERIFIED">VERIFIED</option>
+                                        <option value="ONHOLD">ON HOLD</option>
                                         <option value="REJECTED">REJECTED</option>
                                     </select>
                                 </div>
-                                <div className="flex flex-col gap-2 mt-3">
-                                    <label className="text-[10px] tracking-widest text-primaryred">NOTE</label>
-                                    <textarea
-                                        value={paymentUpdateNote}
-                                        onChange={(e) => setPaymentUpdateNote(e.target.value)}
-                                        rows={3}
-                                        className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 text-white text-xs tracking-widest focus:outline-none w-full transition-colors duration-200 resize-none"
-                                        placeholder="Add a note for the user..."
-                                    />
-                                </div>
+                                <AnimatePresence>
+                                  {(paymentUpdateStatus === 'ONHOLD' || paymentUpdateStatus === 'REJECTED') && (
+                                    <motion.div
+                                      className="flex flex-col gap-2 mt-3"
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      transition={{ duration: 0.2 }}
+                                    >
+                                        <label className="text-[10px] tracking-widest text-primaryred">NOTE</label>
+                                        <textarea
+                                            value={paymentUpdateNote}
+                                            onChange={(e) => setPaymentUpdateNote(e.target.value)}
+                                            rows={3}
+                                            className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 text-white text-xs tracking-widest focus:outline-none w-full transition-colors duration-200 resize-none"
+                                            placeholder="Message to send to user about payment status update..."
+                                        />
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
                                 <div className="flex flex-wrap gap-2 mt-3">
                                     <button
                                         onClick={async () => {
@@ -459,21 +473,36 @@ function RegistrationDetailPanel({
                                         CANCEL
                                     </button>
                                 </div>
-                            </div>
-                        ) : (
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="edit-button"
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.3, ease: 'easeOut' }}
+                            >
                             <button
                                 onClick={() => {
                                     setIsEditingPayment(true)
                                     setPaymentUpdateError(null)
                                     setPaymentUpdateSuccess(null)
                                     setPaymentUpdateStatus(detail.paymentStatus)
-                                    setPaymentUpdateNote('')
+                                    setPaymentUpdateNote(detail.note)
                                 }}
                                 className="self-start text-xs tracking-widest text-primaryred border border-primaryred px-4 py-2 hover:bg-primaryred hover:text-white transition-colors duration-200"
                             >
                                 UPDATE PAYMENT STATUS
                             </button>
-                        )}
+                            </motion.div>
+                          )}
+                          {paymentUpdateSuccess && (
+                            <div className="text-green-400 text-xs tracking-widest">{paymentUpdateSuccess}</div>
+                            )}
+                            {paymentUpdateError && (
+                                <div className="text-red-400 text-xs tracking-widest">{paymentUpdateError}</div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
             </div>
