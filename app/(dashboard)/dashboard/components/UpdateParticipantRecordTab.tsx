@@ -12,6 +12,7 @@ interface ParticipantProfile {
     cnic: string
     phone: string | null
     institution: string | null
+    rollNumber?: string | null
 }
 
 interface TeamRegistration {
@@ -380,7 +381,57 @@ function TeamCard({ team, onChangeCompetition, justChanged }: TeamCardProps) {
 
 // ─── Participant Profile Card ─────────────────────────────────────────────────
 
-function ParticipantCard({ profile, teamCount }: { profile: ParticipantProfile; teamCount: number }) {
+function ParticipantCard({
+    profile,
+    teamCount,
+    onUpdate,
+}: {
+    profile: ParticipantProfile
+    teamCount: number
+    onUpdate: (update: Partial<ParticipantProfile>) => void
+}) {
+    const [isEditing, setIsEditing] = useState(false)
+    const [form, setForm] = useState<ParticipantProfile>(profile)
+    const [saving, setSaving] = useState(false)
+    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+    useEffect(() => {
+        setForm(profile)
+    }, [profile])
+
+    const handleSave = async () => {
+        setSaving(true)
+        setMessage(null)
+
+        try {
+            const res = await apiFetch(`/api/participants/${profile.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fullName: form.fullName,
+                    email: form.email,
+                    cnic: form.cnic,
+                    phone: form.phone,
+                    institution: form.institution,
+                    rollNumber: form.rollNumber,
+                }),
+            })
+
+            const json = await res.json()
+            if (!res.ok) {
+                throw new Error(json.message || 'Failed to update participant.')
+            }
+
+            onUpdate(json.data)
+            setMessage({ type: 'success', text: 'Participant updated successfully.' })
+            setIsEditing(false)
+        } catch (err) {
+            setMessage({ type: 'error', text: (err as Error).message || 'Failed to update participant.' })
+        } finally {
+            setSaving(false)
+        }
+    }
+
     return (
         <div className="border border-primaryred bg-[#1A1111] p-5 sm:p-6 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -390,16 +441,103 @@ function ParticipantCard({ profile, teamCount }: { profile: ParticipantProfile; 
                     </h2>
                     <p className="text-[#C4C4C4] text-xs tracking-wide mt-0.5">{profile.email}</p>
                 </div>
-                <span className="text-[10px] tracking-widest text-primaryred border border-primaryred px-2.5 py-1">
-                    {teamCount} COMPETITION{teamCount !== 1 ? 'S' : ''}
-                </span>
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] tracking-widest text-primaryred border border-primaryred px-2.5 py-1">
+                        {teamCount} COMPETITION{teamCount !== 1 ? 'S' : ''}
+                    </span>
+                    <button
+                        onClick={() => {
+                            setIsEditing((v) => !v)
+                            setMessage(null)
+                        }}
+                        className="text-xs tracking-widest text-primaryred border border-primaryred px-4 py-2 hover:bg-primaryred hover:text-white transition-colors duration-200"
+                        type="button"
+                    >
+                        {isEditing ? 'CANCEL' : 'EDIT'}
+                    </button>
+                </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3 pt-1">
-                <InfoPill label="CNIC"        value={profile.cnic} />
-                <InfoPill label="PHONE"       value={profile.phone} />
-                <InfoPill label="INSTITUTION" value={profile.institution} />
-            </div>
+            {message && (
+                <div
+                    className={`text-xs tracking-widest ${
+                        message.type === 'success' ? 'text-green-400' : 'text-red-400'
+                    }`}
+                >
+                    {message.text}
+                </div>
+            )}
+
+            {isEditing ? (
+                <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <label className="flex flex-col text-xs tracking-widest text-primaryred">
+                            NAME
+                            <input
+                                value={form.fullName}
+                                onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))}
+                                className="mt-1 bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2 text-white text-sm focus:outline-none"
+                            />
+                        </label>
+                        <label className="flex flex-col text-xs tracking-widest text-primaryred">
+                            EMAIL
+                            <input
+                                value={form.email}
+                                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                                className="mt-1 bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2 text-white text-sm focus:outline-none"
+                            />
+                        </label>
+                        <label className="flex flex-col text-xs tracking-widest text-primaryred">
+                            CNIC
+                            <input
+                                value={form.cnic}
+                                onChange={(e) => setForm((prev) => ({ ...prev, cnic: e.target.value }))}
+                                className="mt-1 bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2 text-white text-sm focus:outline-none"
+                            />
+                        </label>
+                        <label className="flex flex-col text-xs tracking-widest text-primaryred">
+                            PHONE
+                            <input
+                                value={form.phone ?? ''}
+                                onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                                className="mt-1 bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2 text-white text-sm focus:outline-none"
+                            />
+                        </label>
+                        <label className="flex flex-col text-xs tracking-widest text-primaryred">
+                            INSTITUTION
+                            <input
+                                value={form.institution ?? ''}
+                                onChange={(e) => setForm((prev) => ({ ...prev, institution: e.target.value }))}
+                                className="mt-1 bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2 text-white text-sm focus:outline-none"
+                            />
+                        </label>
+                        <label className="flex flex-col text-xs tracking-widest text-primaryred">
+                            ROLL NUMBER
+                            <input
+                                value={form.rollNumber ?? ''}
+                                onChange={(e) => setForm((prev) => ({ ...prev, rollNumber: e.target.value }))}
+                                className="mt-1 bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2 text-white text-sm focus:outline-none"
+                            />
+                        </label>
+                    </div>
+
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="text-xs tracking-widest text-primaryred border border-primaryred px-4 py-2 hover:bg-primaryred hover:text-white transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                        type="button"
+                    >
+                        {saving ? 'SAVING…' : 'SAVE CHANGES'}
+                    </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3 pt-1">
+                    <InfoPill label="CNIC"        value={profile.cnic} />
+                    <InfoPill label="PHONE"       value={profile.phone} />
+                    <InfoPill label="INSTITUTION" value={profile.institution} />
+                    {profile.rollNumber && <InfoPill label="ROLL" value={profile.rollNumber} />}
+                </div>
+            )}
         </div>
     )
 }
@@ -539,7 +677,11 @@ export default function UpdateParticipantRecordTab() {
             {!searching && profile && (
                 <div className="space-y-5">
                     {/* Profile card */}
-                    <ParticipantCard profile={profile} teamCount={teams.length} />
+                    <ParticipantCard
+                        profile={profile}
+                        teamCount={teams.length}
+                        onUpdate={(update) => setProfile((prev) => prev ? { ...prev, ...update } : prev)}
+                    />
 
                     {/* Team registrations */}
                     <div className="space-y-3">
@@ -550,7 +692,7 @@ export default function UpdateParticipantRecordTab() {
                         {teams.length === 0 ? (
                             <div className="border border-primaryred-muted bg-[#1A1111] p-8 flex items-center justify-center">
                                 <p className="text-[#C4C4C4] text-xs tracking-widest">
-                                    // NOT_REGISTERED_IN_ANY_COMPETITION
+                                    {"// NOT_REGISTERED_IN_ANY_COMPETITION"}
                                 </p>
                             </div>
                         ) : (
@@ -572,7 +714,7 @@ export default function UpdateParticipantRecordTab() {
             {/* Empty state before any search */}
             {!searching && !profile && !error && (
                 <div className="flex items-center justify-center py-12 text-[#C4C4C4] text-xs tracking-widest">
-                    // ENTER_EMAIL_TO_GET_STARTED
+                    {"// ENTER_EMAIL_TO_GET_STARTED"}
                 </div>
             )}
 
