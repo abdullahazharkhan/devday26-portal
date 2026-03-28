@@ -256,7 +256,7 @@ export default function UpdateAttendanceTab() {
     const [searchQuery, setSearchQuery] = useState('')
     const [teams, setTeams] = useState<Team[]>([])
     const [searching, setSearching] = useState(false)
-    const [marking, setMarking] = useState(false)
+    const [markingTeamId, setMarkingTeamId] = useState<string | null>(null)
     const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -300,7 +300,9 @@ export default function UpdateAttendanceTab() {
     const confirmMarkAttendance = async () => {
         if (!selectedTeam) return
 
-        setMarking(true)
+        const teamId = selectedTeam.id
+
+        setMarkingTeamId(teamId)
         setShowConfirmModal(false)
         setError(null)
 
@@ -320,15 +322,25 @@ export default function UpdateAttendanceTab() {
             }
 
             const result = await res.json()
-            setMarkedCount(result.data?.markedCount || 0)
-            setShowSuccessModal(true)
+            const updatedMarkedCount = result.data?.markedCount || 0
 
-            // Refresh search results
-            await handleSearch()
+            setMarkedCount(updatedMarkedCount)
+            setShowSuccessModal(true)
+            setTeams((prevTeams) =>
+                prevTeams.map((team) =>
+                    team.id === teamId
+                        ? {
+                              ...team,
+                              attendanceMarked: true,
+                              markedCount: updatedMarkedCount,
+                          }
+                        : team
+                )
+            )
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to mark attendance')
         } finally {
-            setMarking(false)
+            setMarkingTeamId(null)
         }
     }
 
@@ -395,7 +407,7 @@ export default function UpdateAttendanceTab() {
                                     key={team.id}
                                     team={team}
                                     onMarkAttendance={handleMarkAttendance}
-                                    marking={marking}
+                                    marking={markingTeamId === team.id}
                                 />
                             ))}
                         </div>

@@ -10,7 +10,7 @@ interface ParticipantProfile {
     fullName: string
     email: string
     cnic: string
-    phone: string | null
+    phone: string | ''
     institution: string | null
     rollNumber?: string | null
 }
@@ -410,10 +410,10 @@ function ParticipantCard({
                 body: JSON.stringify({
                     fullName: form.fullName,
                     email: form.email,
-                    cnic: form.cnic,
-                    phone: form.phone,
+                    cnic: form.cnic || '',
+                    phone: form.phone || '',
                     institution: form.institution,
-                    rollNumber: form.rollNumber,
+                    rollNumber: form.rollNumber || '',
                 }),
             })
 

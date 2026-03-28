@@ -239,6 +239,7 @@ export default function CreateRegistrationTab() {
 
     // Submit state
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [checkingClashes, setCheckingClashes] = useState(false)
     const [serverError,  setServerError]  = useState('')
     const [successData,  setSuccessData]  = useState<{
         id: string; name: string; referenceId: string; competition: string; memberCount: number
@@ -340,6 +341,7 @@ export default function CreateRegistrationTab() {
 
     const onSubmit = useCallback(async (data: FormData) => {
         setServerError('')
+        setCheckingClashes(true)
 
         // Assign isLeader: first member is leader, rest are not
         data.members.forEach((m, i) => { m.isLeader = i === 0 })
@@ -362,6 +364,8 @@ export default function CreateRegistrationTab() {
             }
         } catch {
             // If clash-check fails, proceed anyway
+        } finally {
+            setCheckingClashes(false)
         }
 
         // No clashes — submit directly
@@ -720,7 +724,7 @@ export default function CreateRegistrationTab() {
                     </button>
                     <button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || checkingClashes}
                         className="text-xs tracking-widest text-white bg-primaryred border border-primaryred px-6 py-3 hover:bg-primaryred/80 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {isSubmitting && (
@@ -729,7 +733,7 @@ export default function CreateRegistrationTab() {
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                             </svg>
                         )}
-                        {isSubmitting ? 'REGISTERING...' : 'CREATE_REGISTRATION'}
+                        {isSubmitting ? 'REGISTERING...' : checkingClashes ? 'CHECKING_CLASHES...' : 'CREATE_REGISTRATION'}
                     </button>
                 </div>
             </form>
