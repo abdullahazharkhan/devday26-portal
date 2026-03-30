@@ -154,12 +154,12 @@ const Login = () => {
                 </button>
 
                 <p className='text-sm text-foreground-muted text-center'>
-                    Don&apos;t have an account?{' '}
+                    if you don&apos;t have an account,{' '}
                     <Link
-                        href="/register"
+                        href="/login"
                         className='text-primaryred hover:text-primaryred/80 transition-colors duration-200'
                     >
-                        Register
+                        you don&apos;t have an account,
                     </Link>
                 </p>
 

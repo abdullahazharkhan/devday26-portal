@@ -68,8 +68,16 @@ export async function proxy(req: NextRequest) {
         return NextResponse.redirect(redirectUrl)
     }
 
-    // if a logged-in user tries to visit auth pages, send them to dashboard
-    if (pathname === '/login' || pathname === '/register') {
+    // Block direct access to register page
+    if (pathname === '/register') {
+        const loginUrl = req.nextUrl.clone()
+        loginUrl.pathname = '/login'
+        loginUrl.search   = ''
+        return NextResponse.redirect(loginUrl)
+    }
+
+    // if a logged-in user tries to visit login page, send them to dashboard
+    if (pathname === '/login') {
         const token = req.cookies.get('access_token')?.value
         if (token) {
             const payload = decodeJwtPayload(token)
