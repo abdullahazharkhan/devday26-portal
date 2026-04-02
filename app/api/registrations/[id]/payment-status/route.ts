@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchWithAuth, applyCookies, unauthorizedResponse } from '@/lib/fetchWithAuth'
+import { invalidateDetailCache } from '@/lib/registrationDetailCache'
 
 type Params = Promise<{ id: string }>
 
@@ -11,7 +12,6 @@ export async function POST(req: NextRequest, segmentPromise: { params: Params })
     try {
         const { id } = await segmentPromise.params
         const body = await req.json()
-        console.log(id, body);
         const { data, status, setCookieHeaders } = await fetchWithAuth(
             req,
             `/registrations/${id}/payment-status`,
@@ -23,7 +23,9 @@ export async function POST(req: NextRequest, segmentPromise: { params: Params })
         )
 
         if (status === 401) return unauthorizedResponse()
-        console.log(data);
+
+        // Bust the detail cache so the next load reflects the new status
+        if (status === 200) invalidateDetailCache(id)
 
         const response = NextResponse.json(data, { status })
         applyCookies(response, setCookieHeaders)

@@ -61,20 +61,23 @@ export default function DashboardNav() {
     const user      = useAuthStore((s) => s.user)
     const clearUser = useAuthStore((s) => s.clearUser)
     const setUser   = useAuthStore((s) => s.setUser)
+    const isStale   = useAuthStore((s) => s.isStale)
 
     useEffect(() => { setHasMounted(true) }, [])
 
-    // On every dashboard load, silently fetch the latest user profile so any
-    // permissions granted by a super-admin are reflected without a re-login.
+    // Only re-fetch the profile when the cached data is stale (>5 min) or absent.
+    // This avoids an unnecessary /api/auth/me round-trip on every mount while
+    // still picking up permission changes granted by a super-admin.
     useEffect(() => {
         if (!hasMounted) return
+        if (!isStale()) return    // fresh data — skip network call
         fetch('/api/auth/me')
             .then((r) => r.json())
             .then((json) => {
                 if (json.success && json.data) setUser(json.data)
             })
             .catch(() => { /* silent — stale data is better than an error */ })
-    }, [hasMounted, setUser])
+    }, [hasMounted, setUser, isStale])
 
     const displayName = (user?.fullName ?? user?.email ?? 'USER').toUpperCase()
     const initials    = getInitials(user?.fullName ?? null)

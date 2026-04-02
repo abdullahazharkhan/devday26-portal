@@ -16,6 +16,8 @@ export interface AuthUser {
 
 interface AuthState {
     user: AuthUser | null
+    /** Unix-ms timestamp of the last successful setUser / refreshUser call */
+    lastFetchedAt: number | null
 
     /** Call after a successful login response to hydrate the store */
     setUser: (user: AuthUser) => void
@@ -25,26 +27,38 @@ interface AuthState {
 
     /** Convenience selector — true when a user is stored */
     isLoggedIn: () => boolean
+
+    /** True when the cached profile is older than `maxAgeMs` (default 5 min) */
+    isStale: (maxAgeMs?: number) => boolean
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
+
+const DEFAULT_STALE_MS = 5 * 60 * 1000 // 5 minutes
 
 export const useAuthStore = create<AuthState>()(
     persist(
         (set, get) => ({
             user: null,
+            lastFetchedAt: null,
 
-            setUser: (user) => set({ user }),
+            setUser: (user) => set({ user, lastFetchedAt: Date.now() }),
 
-            clearUser: () => set({ user: null }),
+            clearUser: () => set({ user: null, lastFetchedAt: null }),
 
             isLoggedIn: () => get().user !== null,
+
+            isStale: (maxAgeMs = DEFAULT_STALE_MS) => {
+                const ts = get().lastFetchedAt
+                if (!ts) return true
+                return Date.now() - ts > maxAgeMs
+            },
         }),
         {
             name:    'devday-auth',           // localStorage key
             storage: createJSONStorage(() => localStorage),
-            // Only persist the user object — actions are not serialisable
-            partialize: (state) => ({ user: state.user }),
+            // Only persist the user object + timestamp
+            partialize: (state) => ({ user: state.user, lastFetchedAt: state.lastFetchedAt }),
         }
     )
 )
