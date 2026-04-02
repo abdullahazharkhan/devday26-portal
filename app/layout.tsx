@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Space_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import LoadingBar from './components/LoadingBar'
+import { Toaster } from 'sonner'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,6 +47,7 @@ export default function RootLayout({
         {/* global loading bar */}
         <LoadingBar />
         {children}
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   );
