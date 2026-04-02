@@ -132,7 +132,7 @@ async function getWorker(): Promise<OcrWorker> {
             // preserve_interword_spaces helps Tesseract keep word spacing that
             // separates amounts / references from surrounding text.
             try {
-                await (worker as any).setParameters?.({ preserve_interword_spaces: '1' })
+                await (worker as any).setParameters?.({ preserve_interword_spaces: '1' }) // eslint-disable-line @typescript-eslint/no-explicit-any
             } catch { /* older Tesseract versions may not support this */ }
             return worker as OcrWorker
         })()

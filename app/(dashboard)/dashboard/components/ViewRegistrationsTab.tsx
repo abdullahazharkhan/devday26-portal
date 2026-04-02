@@ -19,6 +19,23 @@ interface Competition {
     maxTeamSize?: number
 }
 
+interface SearchParticipant {
+    id: string
+    fullName: string
+    email: string
+    cnic: string
+}
+
+interface SearchCompetition {
+    id: string
+    name: string
+}
+
+interface SearchResult {
+    participant: SearchParticipant
+    competitions: SearchCompetition[]
+}
+
 interface RegistrationRow {
     id: string
     name: string
@@ -1180,7 +1197,7 @@ export default function ViewRegistrationsTab() {
     // Search modal state
     const [isSearchOpen, setIsSearchOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
-    const [searchResults, setSearchResults] = useState<any[]>([])
+    const [searchResults, setSearchResults] = useState<SearchResult[]>([])
     const [isSearching, setIsSearching] = useState(false)
 
     // Debounce tblSearchInput → tblSearch, reset to page 1
@@ -1214,7 +1231,7 @@ export default function ViewRegistrationsTab() {
             } else {
                 setSearchResults([])
             }
-        } catch (error) {
+        } catch {
             setSearchResults([])
         } finally {
             setIsSearching(false)
@@ -1303,7 +1320,7 @@ export default function ViewRegistrationsTab() {
                 <TabsSkeleton />
             ) : competitions.length === 0 ? (
                 <div className="border border-primaryred-muted bg-[#271C1C] p-10 flex items-center justify-center">
-                    <p className="text-[#C4C4C4] text-xs tracking-widest">// NO_COMPETITIONS_FOUND</p>
+                    <p className="text-[#C4C4C4] text-xs tracking-widest">{/* NO_COMPETITIONS_FOUND */}</p>
                 </div>
             ) : (
                 <>
@@ -1391,7 +1408,7 @@ export default function ViewRegistrationsTab() {
                                                         {result.participant.email} • {result.participant.cnic}
                                                     </div>
                                                     <div className="flex flex-wrap gap-1">
-                                                        {result.competitions.map((comp: any) => (
+                                                        {result.competitions.map((comp: SearchCompetition) => (
                                                             <span
                                                                 key={comp.id}
                                                                 className="text-[9px] tracking-widest text-[#C4C4C4] border border-primaryred-muted px-2 py-0.5"

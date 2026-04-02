@@ -33,7 +33,7 @@ import EditCompetition             from '../competitions/EditCompetition'
 
 const COMING_SOON = (
     <div className="border border-primaryred-muted bg-[#271C1C] p-5 sm:p-8 md:p-10 min-h-64 sm:min-h-80 flex items-center justify-center">
-        <p className="text-[#C4C4C4] text-xs tracking-widest">// CONTENT_COMING_SOON</p>
+        <p className="text-[#C4C4C4] text-xs tracking-widest">{/* CONTENT_COMING_SOON */}</p>
     </div>
 )
 
@@ -85,7 +85,9 @@ export default function DashboardPageContent({ tabParam }: Props) {
     const [hasMounted, setHasMounted] = useState(false)
     const user = useAuthStore((s) => s.user)
 
-    useEffect(() => { setHasMounted(true) }, [])
+    useEffect(() => {
+        setHasMounted(true) // eslint-disable-line react-hooks/set-state-in-effect
+    }, [])
 
     // Wait for Zustand to hydrate from localStorage before rendering
     if (!hasMounted) return SKELETON
