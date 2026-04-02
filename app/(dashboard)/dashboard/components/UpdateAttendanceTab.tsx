@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { apiFetch } from '@/lib/apiClient'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -350,7 +350,7 @@ export default function UpdateAttendanceTab() {
         }
     }
 
-    useEffect(()=>{handleSearch()},[])
+    // Removed automatic search on mount - only search when user explicitly searches
 
     return (
         <div className="border border-primaryred-muted bg-[#271C1C] p-4 sm:p-6 md:p-8 lg:p-10 space-y-6">

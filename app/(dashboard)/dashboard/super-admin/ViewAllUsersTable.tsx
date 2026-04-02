@@ -245,7 +245,6 @@ export default function ViewAllUsersTable() {
 
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
     const safePage   = Math.min(page, totalPages)
-    const pageRows   = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
     // ── Group detection (only when ALL roles shown and not loading) ──────────
 

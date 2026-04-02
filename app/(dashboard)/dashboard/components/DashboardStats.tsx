@@ -85,19 +85,26 @@ export default function DashboardStats() {
             setIsLoading(false)
             return
         }
-        setIsLoading(true)
-        setError(null)
-        fetch('/api/dashboard/stats')
-            .then((r) => r.json())
-            .then((json) => {
+
+        const fetchStats = async () => {
+            setIsLoading(true)
+            setError(null)
+            try {
+                const res = await fetch('/api/dashboard/stats')
+                const json = await res.json()
                 if (json.success) {
                     setStats(json.data)
                 } else {
                     setError(json.message ?? 'Failed to load stats.')
                 }
-            })
-            .catch(() => setError('Could not reach the server.'))
-            .finally(() => setIsLoading(false))
+            } catch {
+                setError('Could not reach the server.')
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        fetchStats()
     }, [canView])
 
     if (isLoading) return <StatsSkeleton />
