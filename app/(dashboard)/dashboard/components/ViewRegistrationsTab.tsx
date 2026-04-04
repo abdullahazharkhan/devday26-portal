@@ -42,6 +42,8 @@ interface RegistrationRow {
     referenceId: string
     paymentStatus: PaymentStatus
     paymentMethod: string | null
+    paymentProofUrl: string | null
+    note: string
     competition: { id: string; name: string; compDay: string; fee: string }
     memberCount: number
     createdAt: string
@@ -399,7 +401,7 @@ function RegistrationDetailPanel({
             </div>
 
             {/* ── LEFT: competition + payment + OCR  |  RIGHT: proof image only ── */}
-            <div className="flex gap-6 xl:gap-8 items-start">
+            <div className="flex flex-col gap-6 xl:gap-8 lg:flex-row items-start">
 
                 {/* LEFT column */}
                 <div className="flex flex-col gap-4 flex-1 min-w-0">
@@ -463,7 +465,7 @@ function RegistrationDetailPanel({
                         </div>
 
                         {/* Payment update controls */}
-                        <div className="flex gap-4 items-start pt-1">
+                        <div className="flex flex-col gap-4 pt-1 sm:flex-row sm:items-start">
                             {/* Button + floating status menu */}
                             <div className="relative shrink-0 flex flex-col gap-2">
                                 {isEditingPayment && (
@@ -679,7 +681,7 @@ function RegistrationDetailPanel({
 
                 {/* RIGHT column — proof image only, sticky */}
                 {detail.paymentProofUrl && (
-                    <div className="w-[340px] xl:w-[400px] shrink-0 sticky top-4">
+                    <div className="w-full lg:w-[340px] xl:w-[400px] shrink-0 lg:sticky lg:top-4">
                         <div className="border border-primaryred-muted bg-[#271C1C] p-4 flex flex-col gap-3">
                             <h3 className="text-primaryred text-xs tracking-[0.2em] font-bold">PAYMENT_PROOF</h3>
                             <button
@@ -917,13 +919,21 @@ const COMP_COLUMNS: Column<RegistrationRow>[] = [
         minWidth: '8rem',
     },
     {
+        key: '_payment',
+        header: 'PAYMENT',
+        render: () => (
+            <span className="text-primaryred text-[10px] tracking-widest opacity-60">PAYMENT PROOF →</span>
+        ),
+        minWidth: '6rem',
+    },
+    {
         key: '_action',
         header: '',
         render: () => (
             <span className="text-primaryred text-[10px] tracking-widest opacity-60">VIEW →</span>
         ),
         minWidth: '4rem',
-    },
+    }
 ]
 
 /** Columns for the "ALL" view include a competition name column. */
@@ -940,7 +950,8 @@ const ALL_COLUMNS: Column<RegistrationRow>[] = [
     COMP_COLUMNS[3], // STATUS
     COMP_COLUMNS[4], // MEMBERS
     COMP_COLUMNS[5], // REGISTERED
-    COMP_COLUMNS[6], // VIEW →
+    COMP_COLUMNS[6], // PAYMENT PROOF →
+    COMP_COLUMNS[7], // VIEW →
 ]
 
 // ─── Competitions loading skeleton ────────────────────────────────────────────
@@ -1053,6 +1064,11 @@ function CompetitionTable({
     const [rows,      setRows]      = useState<RegistrationRow[]>([])
     const [meta,      setMeta]      = useState<PaginationMeta>({ total: 0, page: 1, limit: 15, totalPages: 0 })
     const [isLoading, setIsLoading] = useState(true)
+    const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null)
+    const [paymentUpdateStatus, setPaymentUpdateStatus] = useState<PaymentStatus>('PENDING_PAYMENT')
+    const [paymentUpdateNote, setPaymentUpdateNote] = useState('')
+    const [isUpdatingPayment, setIsUpdatingPayment] = useState(false)
+    const [proofLoadedByRow, setProofLoadedByRow] = useState<Record<string, boolean>>({})
 
     const isAll = competition === null
 
@@ -1069,8 +1085,12 @@ function CompetitionTable({
             const res  = await fetch(`/api/registrations?${params}`)
             const json = await res.json()
             if (json.success) {
+                console.log(json.data)
                 setRows(json.data)
                 setMeta(json.meta)
+                setExpandedPaymentId((prev) => (
+                    prev && json.data.some((r: RegistrationRow) => r.id === prev) ? prev : null
+                ))
                 onRowsLoaded?.(json.data.map((r: RegistrationRow) => r.id), json.meta)
             }
         } catch {
@@ -1081,6 +1101,43 @@ function CompetitionTable({
     }, [competition, page, search, statusFilter, onRowsLoaded])
 
     useEffect(() => { fetchRows() }, [fetchRows])
+
+    const handlePaymentRowToggle = useCallback((row: RegistrationRow) => {
+        setExpandedPaymentId((prev) => {
+            if (prev === row.id) return null
+            setPaymentUpdateStatus(row.paymentStatus)
+            setPaymentUpdateNote(row.note)
+            return row.id
+        })
+    }, [])
+
+    const handleInlinePaymentUpdate = useCallback(async (row: RegistrationRow) => {
+        setIsUpdatingPayment(true)
+        try {
+            const res = await fetch(`/api/registrations/${row.id}/payment-status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: paymentUpdateStatus,
+                    note: paymentUpdateNote,
+                }),
+            })
+            const json = await res.json()
+            if (!json.success) throw new Error(json.message ?? 'Failed to update payment status.')
+
+            setRows((prev) => prev.map((r) => (
+                r.id === row.id
+                    ? { ...r, paymentStatus: paymentUpdateStatus }
+                    : r
+            )))
+
+            toast.success('Payment status updated.')
+        } catch (err) {
+            toast.error((err as Error).message ?? 'Failed to update payment status.')
+        } finally {
+            setIsUpdatingPayment(false)
+        }
+    }, [paymentUpdateStatus, paymentUpdateNote])
 
     return (
         <div className="flex flex-col gap-0 border border-t-0 border-primaryred-muted">
@@ -1142,6 +1199,7 @@ function CompetitionTable({
                         className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 pr-8 text-white text-xs tracking-widest focus:outline-none w-full appearance-none transition-colors duration-200"
                     >
                         <option value="">ALL STATUSES</option>
+                        <option value="ONHOLD">ON HOLD</option>
                         <option value="PENDING_PAYMENT">PENDING PAYMENT</option>
                         <option value="VERIFIED">VERIFIED</option>
                         <option value="REJECTED">REJECTED</option>
@@ -1162,6 +1220,134 @@ function CompetitionTable({
                 skeletonRowCount={5}
                 emptyMessage="// NO_REGISTRATIONS_FOUND"
                 onRowClick={(row) => onRowClick(row.id)}
+                onCellClick={(row, col, _rowIdx, event) => {
+                    if (col.key !== '_payment') return
+                    event.stopPropagation()
+                    handlePaymentRowToggle(row)
+                }}
+                expandedRowKey={expandedPaymentId}
+                renderExpandedRow={(row) => (
+                    <div className="grid grid-cols-1 lg:grid-cols-[480px_minmax(0,1fr)] gap-4 lg:gap-6">
+                        <div className="border border-primaryred-muted bg-[#1c1010] p-4 flex flex-col gap-4">
+                            <div className="flex flex-col gap-2">
+                                <span className="text-[10px] tracking-[0.2em] text-primaryred font-bold">PAYMENT_PROOF</span>
+                            </div>
+                            {row.paymentProofUrl ? (
+                                <div className="relative min-h-[420px] max-h-[620px] bg-[#0f0b0b] rounded-sm overflow-hidden flex items-center justify-center border border-primaryred-muted">
+                                    {!proofLoadedByRow[row.id] && (
+                                        <div className="absolute inset-0 animate-pulse bg-[#3a2525]" />
+                                    )}
+                                    <a
+                                        href={row.paymentProofUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="w-full h-full"
+                                    >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={row.paymentProofUrl}
+                                            alt={`${row.name} payment proof`}
+                                            className={`w-full h-full object-contain transition-opacity duration-300 ${proofLoadedByRow[row.id] ? '' : 'opacity-0'}`}
+                                            loading="lazy"
+                                            onLoad={() => setProofLoadedByRow((prev) => ({ ...prev, [row.id]: true }))}
+                                            onError={() => setProofLoadedByRow((prev) => ({ ...prev, [row.id]: true }))}
+                                        />
+                                    </a>
+                                </div>
+                            ) : (
+                                <div className="border border-primaryred-muted bg-[#120b0b] py-16 text-center text-[11px] tracking-widest text-[#C4C4C4] rounded-sm">
+                                    NO_PAYMENT_PROOF_UPLOADED
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="border border-primaryred-muted bg-[#1c1010] p-4 flex flex-col gap-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="text-[10px] tracking-[0.2em] text-primaryred font-bold">UPDATE_PAYMENT_STATUS</span>
+                                <StatusBadge status={row.paymentStatus} />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="border border-primaryred-muted rounded-sm p-3 bg-[#171010] text-[11px] tracking-widest text-[#C4C4C4]">
+                                    <div className="text-[#7f7f7f] uppercase text-[9px]">FEE</div>
+                                    <div className="mt-2 text-white font-semibold">{row.competition.fee ? `PKR ${row.competition.fee}` : 'N/A'}</div>
+                                </div>
+                                <div className="border border-primaryred-muted rounded-sm p-3 bg-[#171010] text-[11px] tracking-widest text-[#C4C4C4]">
+                                    <div className="text-[#7f7f7f] uppercase text-[9px]">METHOD</div>
+                                    <div className="mt-2 text-white font-semibold">{row.paymentMethod ?? 'UNKNOWN'}</div>
+                                </div>
+                                <div className="border border-primaryred-muted rounded-sm p-3 bg-[#171010] text-[11px] tracking-widest text-[#C4C4C4] col-span-2">
+                                    <div className="text-[#7f7f7f] uppercase text-[9px]">PAYMENT STATUS</div>
+                                    <div className="mt-2 text-white font-semibold">{row.paymentStatus.replace('_', ' ')}</div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-3">
+                                <div className="relative">
+                                    <select
+                                        value={paymentUpdateStatus}
+                                        onChange={(e) => setPaymentUpdateStatus(e.target.value as PaymentStatus)}
+                                        className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 pr-8 text-white text-xs tracking-widest focus:outline-none w-full appearance-none transition-colors duration-200"
+                                    >
+                                        <option value="PENDING_PAYMENT">PENDING PAYMENT</option>
+                                        <option value="VERIFIED">VERIFIED</option>
+                                        <option value="ONHOLD">ON HOLD</option>
+                                        <option value="REJECTED">REJECTED</option>
+                                    </select>
+                                    <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-primaryred">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                                            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.24 4.5a.75.75 0 0 1-1.08 0l-4.24-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
+                                        </svg>
+                                    </span>
+                                </div>
+
+                                {(paymentUpdateStatus === 'ONHOLD' || paymentUpdateStatus === 'REJECTED') && (
+                                    <div className="flex flex-col gap-1.5 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <span className="text-[10px] tracking-widest text-primaryred shrink-0">NOTE</span>
+                                            {NOTE_PRESETS[paymentUpdateStatus].map((msg) => (
+                                                <button
+                                                    key={msg}
+                                                    type="button"
+                                                    onClick={() => setPaymentUpdateNote(msg)}
+                                                    className="text-[9px] tracking-widest text-[#C4C4C4] border border-primaryred-muted px-2 py-0.5 hover:border-primaryred hover:text-white transition-colors duration-200"
+                                                >
+                                                    {msg}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <textarea
+                                            value={paymentUpdateNote||''}
+                                            onChange={(e) => setPaymentUpdateNote(e.target.value)}
+                                            rows={2}
+                                            className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 text-white text-xs tracking-widest focus:outline-none w-full transition-colors duration-200 resize-none"
+                                            placeholder="Message to send to user about payment status update..."
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => handleInlinePaymentUpdate(row)}
+                                    disabled={isUpdatingPayment}
+                                    className="text-xs tracking-widest text-primaryred border border-primaryred px-4 py-2 hover:bg-primaryred hover:text-white transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    {isUpdatingPayment ? 'UPDATING…' : 'SAVE'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setExpandedPaymentId(null)}
+                                    disabled={isUpdatingPayment}
+                                    className="text-xs tracking-widest text-[#C4C4C4] border border-primaryred-muted px-4 py-2 hover:border-primaryred hover:text-white transition-colors duration-200"
+                                >
+                                    CLOSE
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             />
 
             {/* Pagination */}

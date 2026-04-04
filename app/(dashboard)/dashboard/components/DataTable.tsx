@@ -27,6 +27,17 @@ export interface DataTableProps<T = Record<string, unknown>> {
     skeletonRowCount?: number
     /** If provided, rows become clickable and this handler is called on click */
     onRowClick?: (row: T) => void
+    /** Optional cell click handler for custom per-column interactions */
+    onCellClick?: (
+        row: T,
+        column: Column<T>,
+        rowIndex: number,
+        event: React.MouseEvent<HTMLTableCellElement>
+    ) => void
+    /** Row key to render expanded content for */
+    expandedRowKey?: string | null
+    /** Expanded row content renderer */
+    renderExpandedRow?: (row: T, rowIndex: number) => React.ReactNode
 }
 
 // ─── Skeleton helpers ─────────────────────────────────────────────────────────
@@ -57,6 +68,9 @@ export default function DataTable<T = Record<string, unknown>>({
     loading = false,
     skeletonRowCount = 8,
     onRowClick,
+    onCellClick,
+    expandedRowKey,
+    renderExpandedRow,
 }: DataTableProps<T>) {
     return (
         <div className="border border-primaryred-muted bg-[#191111] overflow-x-auto">
@@ -93,25 +107,42 @@ export default function DataTable<T = Record<string, unknown>>({
                             </td>
                         </tr>
                     ) : (
-                        rows.map((row, rowIdx) => (
-                            <tr
-                                key={keyExtractor(row)}
-                                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                                className={`border-b border-primaryred-muted last:border-b-0 hover:bg-[#1D1313] transition-colors duration-150 ${onRowClick ? 'cursor-pointer' : ''}`}
-                            >
-                                {columns.map((col) => (
-                                    <td
-                                        key={col.key}
-                                        className={`px-4 py-3 text-white align-middle whitespace-nowrap ${col.className ?? ''}`}
-                                        style={col.minWidth ? { minWidth: col.minWidth } : undefined}
+                        rows.map((row, rowIdx) => {
+                            const rowKey = keyExtractor(row)
+                            const isExpanded = !!expandedRowKey && expandedRowKey === rowKey
+
+                            return (
+                                <React.Fragment key={rowKey}>
+                                    <tr
+                                        onClick={onRowClick ? () => onRowClick(row) : undefined}
+                                        className={`border-b border-primaryred-muted hover:bg-[#1D1313] transition-colors duration-150 ${onRowClick ? 'cursor-pointer' : ''}`}
                                     >
-                                        {col.render
-                                            ? col.render(row, rowIdx)
-                                            : String((row as Record<string, unknown>)[col.key] ?? '—')}
-                                    </td>
-                                ))}
-                            </tr>
-                        ))
+                                        {columns.map((col) => (
+                                            <td
+                                                key={col.key}
+                                                onClick={onCellClick
+                                                    ? (event) => onCellClick(row, col, rowIdx, event)
+                                                    : undefined}
+                                                className={`px-4 py-3 text-white align-middle whitespace-nowrap ${col.className ?? ''}`}
+                                                style={col.minWidth ? { minWidth: col.minWidth } : undefined}
+                                            >
+                                                {col.render
+                                                    ? col.render(row, rowIdx)
+                                                    : String((row as Record<string, unknown>)[col.key] ?? '—')}
+                                            </td>
+                                        ))}
+                                    </tr>
+
+                                    {isExpanded && renderExpandedRow && (
+                                        <tr className="border-b border-primaryred-muted last:border-b-0 bg-[#150d0d]">
+                                            <td colSpan={columns.length} className="px-4 py-4">
+                                                {renderExpandedRow(row, rowIdx)}
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            )
+                        })
                     )}
                 </tbody>
             </table>
