@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
+import { ChartNoAxesColumn, CircleCheckBig, Hourglass, Users, type LucideIcon } from 'lucide-react'
 import { useAuthStore } from '@/lib/stores/authStore'
 
 interface DashboardStats {
@@ -22,8 +23,10 @@ function StatCard({
     value: string | number
     subtitle?: string
     color: string
-    icon: string
+    icon: LucideIcon
 }) {
+    const Icon = icon
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -35,7 +38,7 @@ function StatCard({
                 <span className="text-[10px] tracking-[0.2em] text-primaryred/70 uppercase font-bold">
                     {title}
                 </span>
-                <span className="text-2xl opacity-60">{icon}</span>
+                <Icon className="h-5 w-5 text-primaryred/70" aria-hidden="true" />
             </div>
             <div className="flex flex-col gap-1">
                 <span className="text-2xl sm:text-3xl font-bold text-white tabular-nums">
@@ -129,28 +132,28 @@ export default function DashboardStats() {
                 value={stats.totalRegistrations}
                 subtitle="Teams"
                 color=""
-                icon="👥"
+                icon={Users}
             />
             <StatCard
                 title="Verified Payments"
                 value={stats.verifiedPayments}
                 subtitle="Confirmed"
                 color=""
-                icon="✅"
+                icon={CircleCheckBig}
             />
             <StatCard
                 title="Pending Payments"
                 value={stats.pendingPayments}
                 subtitle="Awaiting"
                 color=""
-                icon="⏳"
+                icon={Hourglass}
             />
             <StatCard
                 title="Attendance"
                 value={`${stats.attendancePercentage}%`}
                 subtitle="Present"
                 color=""
-                icon="📊"
+                icon={ChartNoAxesColumn}
             />
         </div>
     )

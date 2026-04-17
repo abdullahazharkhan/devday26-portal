@@ -2,10 +2,16 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import { useAuthStore } from '@/lib/stores/authStore'
 import teamConfig, { ALL_ACTIONS } from './tabsConfig'
+
+type VisibleTab = {
+    action: string
+    label: string
+    groupSlug: string
+}
 
 function getInitials(fullName: string | null): string {
     if (!fullName) return '?'
@@ -56,6 +62,9 @@ export default function DashboardNav() {
     const [dropdownOpen, setDropdownOpen] = useState(false)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
     const [hasMounted, setHasMounted] = useState(false)
+    const [searchTerm, setSearchTerm] = useState('')
+    const [activeGroup, setActiveGroup] = useState('all')
+    const [isActionsPanelOpen, setIsActionsPanelOpen] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
     const user      = useAuthStore((s) => s.user)
@@ -90,12 +99,71 @@ export default function DashboardNav() {
     const teamSlug = segments[1] ?? ''
     const team = teamConfig[teamSlug]  // used only for the centre heading label
 
+    const actionGroupMap = useMemo(() => {
+        const map = new Map<string, { slug: string; label: string }>()
+        Object.entries(teamConfig).forEach(([slug, cfg]) => {
+            cfg.tabs.forEach((tab) => {
+                if (!map.has(tab.action)) {
+                    map.set(tab.action, { slug, label: cfg.label })
+                }
+            })
+        })
+        return map
+    }, [])
+
     // Show every action the user holds, in the canonical order defined by ALL_ACTIONS,
     // regardless of which team dashboard they are on.  This ensures cross-team actions
     // granted by a super-admin appear as tabs immediately without a re-login.
-    const visibleTabs = Object.entries(ALL_ACTIONS)
+    const visibleTabs: VisibleTab[] = Object.entries(ALL_ACTIONS)
         .filter(([action]) => userActions.includes(action))
-        .map(([action, { label }]) => ({ action, label }))
+        .map(([action, { label }]) => {
+            const group = actionGroupMap.get(action)
+            return {
+                action,
+                label,
+                groupSlug: group?.slug ?? 'other',
+            }
+        })
+
+    const tabIndexMap = useMemo(() => {
+        return new Map(visibleTabs.map((tab, index) => [tab.action, index + 1]))
+    }, [visibleTabs])
+
+    const groupOptions = useMemo(() => {
+        const orderedSlugs = Object.keys(teamConfig)
+        const available = new Set(visibleTabs.map((tab) => tab.groupSlug))
+
+        const options = orderedSlugs
+            .filter((slug) => available.has(slug))
+            .map((slug) => ({
+                slug,
+                label: teamConfig[slug]?.label?.replaceAll('_', ' ') ?? slug.toUpperCase(),
+            }))
+
+        if (available.has('other')) {
+            options.push({ slug: 'other', label: 'OTHER' })
+        }
+
+        return options
+    }, [visibleTabs])
+
+    const normalizedSearch = searchTerm.trim().toLowerCase()
+    const filteredTabs = visibleTabs.filter((tab) => {
+        const matchesGroup = activeGroup === 'all' || tab.groupSlug === activeGroup
+        const matchesSearch =
+            normalizedSearch.length === 0 ||
+            tab.label.toLowerCase().includes(normalizedSearch) ||
+            tab.action.toLowerCase().includes(normalizedSearch)
+        return matchesGroup && matchesSearch
+    })
+
+    const groupedFilteredTabs = groupOptions
+        .map((group) => ({
+            ...group,
+            tabs: filteredTabs.filter((tab) => tab.groupSlug === group.slug),
+        }))
+        .filter((group) => group.tabs.length > 0)
+
     const activeTab = searchParams.get('tab') ?? (visibleTabs[0]?.action ?? '')
 
     const buildTabHref = (tabAction: string) => {
@@ -202,28 +270,125 @@ export default function DashboardNav() {
 
             {/* Tabs */}
             {visibleTabs.length > 0 && (
-                <div className="overflow-x-auto scrollbar-none">
-                    <nav className="flex border-t border-primaryred-muted min-w-max">
-                        {visibleTabs.map((tab, index) => {
-                            const isActive = activeTab === tab.action
-                            return (
-                                <Link
-                                    key={tab.action}
-                                    href={buildTabHref(tab.action)}
-                                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2.5 sm:py-3 text-[10px] sm:text-[11px] tracking-[0.08rem] sm:tracking-[0.15rem] uppercase font-medium transition-colors duration-200 whitespace-nowrap border-b-2 ${
-                                        isActive
-                                            ? 'text-white bg-[#271C1C] border-primaryred'
-                                            : 'text-[#C4C4C4] hover:text-white hover:bg-[#271C1C] border-transparent'
+                <div className="border-t border-primaryred-muted px-4 sm:px-6 py-3 sm:py-4 space-y-3 bg-[#161010]">
+                    <button
+                        type="button"
+                        onClick={() => setIsActionsPanelOpen((prev) => !prev)}
+                        aria-expanded={isActionsPanelOpen}
+                        className="w-full border border-primaryred-muted bg-[#211616] px-3 sm:px-4 py-2.5 text-left hover:border-primaryred transition-colors"
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-[11px] sm:text-xs tracking-[0.14rem] text-white uppercase font-semibold">
+                                    Choose an action
+                                </p>
+                                <p className="text-[10px] sm:text-[11px] tracking-[0.08rem] text-[#A58F8F] uppercase mt-1 truncate">
+                                    {isActionsPanelOpen
+                                        ? 'Collapse action menu'
+                                        : `Expand action menu • active: ${(ALL_ACTIONS[activeTab]?.label ?? 'none').toUpperCase()}`}
+                                </p>
+                            </div>
+                            <span className="text-primaryred text-sm leading-none" aria-hidden="true">
+                                {isActionsPanelOpen ? '−' : '+'}
+                            </span>
+                        </div>
+                    </button>
+
+                    {isActionsPanelOpen && (
+                        <>
+                            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="text"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        placeholder="SEARCH ACTIONS"
+                                        aria-label="Search available actions"
+                                        className="w-full bg-[#241919] border border-primaryred-muted text-[11px] sm:text-xs tracking-[0.12rem] text-white placeholder:text-[#7B6A6A] px-3 sm:px-4 py-2.5 outline-none focus:border-primaryred transition-colors"
+                                    />
+                                </div>
+                                <div className="text-[10px] sm:text-[11px] tracking-[0.14rem] text-[#C4C4C4] uppercase whitespace-nowrap">
+                                    {filteredTabs.length} of {visibleTabs.length} actions
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveGroup('all')}
+                                    className={`px-3 py-1.5 text-[10px] tracking-[0.12rem] uppercase border transition-colors whitespace-nowrap ${
+                                        activeGroup === 'all'
+                                            ? 'border-primaryred bg-[#2E1A1A] text-white'
+                                            : 'border-primaryred-muted text-[#C4C4C4] hover:text-white hover:border-primaryred'
                                     }`}
                                 >
-                                    <span className="text-primaryred font-bold">
-                                        {String(index + 1).padStart(2, '0')}
-                                    </span>
-                                    {tab.label.toUpperCase()}
-                                </Link>
-                            )
-                        })}
-                    </nav>
+                                    All Teams
+                                </button>
+
+                                {groupOptions.map((group) => {
+                                    const isActiveGroup = activeGroup === group.slug
+                                    return (
+                                        <button
+                                            key={group.slug}
+                                            type="button"
+                                            onClick={() => setActiveGroup(group.slug)}
+                                            className={`px-3 py-1.5 text-[10px] tracking-[0.12rem] uppercase border transition-colors whitespace-nowrap ${
+                                                isActiveGroup
+                                                    ? 'border-primaryred bg-[#2E1A1A] text-white'
+                                                    : 'border-primaryred-muted text-[#C4C4C4] hover:text-white hover:border-primaryred'
+                                            }`}
+                                        >
+                                            {group.label}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+
+                            {groupedFilteredTabs.length === 0 ? (
+                                <div className="border border-primaryred-muted bg-[#1E1515] px-4 py-4 text-[11px] tracking-[0.1rem] text-[#C4C4C4] uppercase">
+                                    No actions found for this filter.
+                                </div>
+                            ) : (
+                                <nav className="space-y-3">
+                                    {groupedFilteredTabs.map((group) => (
+                                        <section key={group.slug} className="border border-primaryred-muted/60 bg-[#1D1414]">
+                                            <div className="px-3 sm:px-4 py-2 border-b border-primaryred-muted/70 flex items-center justify-between gap-3">
+                                                <p className="text-[10px] sm:text-[11px] tracking-[0.14rem] text-primaryred uppercase font-semibold">
+                                                    {group.label}
+                                                </p>
+                                                <p className="text-[10px] tracking-[0.12rem] text-[#8F7A7A] uppercase">
+                                                    {group.tabs.length} actions
+                                                </p>
+                                            </div>
+
+                                            <div className="p-2 sm:p-3 flex flex-wrap gap-2">
+                                                {group.tabs.map((tab) => {
+                                                    const isActive = activeTab === tab.action
+                                                    const tabIndex = tabIndexMap.get(tab.action) ?? 0
+                                                    return (
+                                                        <Link
+                                                            key={tab.action}
+                                                            href={buildTabHref(tab.action)}
+                                                            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-[10px] sm:text-[11px] tracking-[0.1rem] uppercase border transition-colors ${
+                                                                isActive
+                                                                    ? 'text-white bg-[#311D1D] border-primaryred'
+                                                                    : 'text-[#C4C4C4] bg-[#261A1A] border-primaryred-muted hover:text-white hover:border-primaryred'
+                                                            }`}
+                                                        >
+                                                            <span className="text-primaryred font-bold">
+                                                                {String(tabIndex).padStart(2, '0')}
+                                                            </span>
+                                                            {tab.label}
+                                                        </Link>
+                                                    )
+                                                })}
+                                            </div>
+                                        </section>
+                                    ))}
+                                </nav>
+                            )}
+                        </>
+                    )}
                 </div>
             )}
         </header>
