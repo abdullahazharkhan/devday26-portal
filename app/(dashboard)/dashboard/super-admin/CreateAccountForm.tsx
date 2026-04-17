@@ -185,7 +185,7 @@ export default function CreateAccountForm() {
             <div className="border border-primaryred-muted bg-[#271C1C] p-5 sm:p-8">
 
                 <h2 className="text-sm tracking-[0.2em] text-[#C4C4C4] mb-6">
-                    // FILL IN DETAILS BELOW TO CREATE A STAFF ACCOUNT
+                    {"// FILL IN DETAILS BELOW TO CREATE A STAFF ACCOUNT"}
                 </h2>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 sm:gap-6">
