@@ -122,17 +122,17 @@ const COLUMNS: Column<StaffUser>[] = [
     {
         key: 'index',
         header: '#',
-        minWidth: '3rem',
-        headerClassName: 'w-12',
+        minWidth: '2.5rem',
+        headerClassName: 'w-10',
         className: 'text-[#C4C4C4] font-mono',
         render: (_row, i) => String(i + 1).padStart(2, '0'),
     },
     {
         key: 'fullName',
-        header: 'FULL NAME',
-        minWidth: '12rem',
+        header: 'NAME',
+        minWidth: '8rem',
         render: (row) => (
-            <span className="font-semibold tracking-wide text-white">
+            <span className="font-semibold tracking-wide text-white wrap-break-word">
                 {row.fullName ?? <span className="text-[#C4C4C4]">—</span>}
             </span>
         ),
@@ -140,30 +140,30 @@ const COLUMNS: Column<StaffUser>[] = [
     {
         key: 'nuId',
         header: 'NU ID',
-        minWidth: '8rem',
-        className: 'font-mono text-[#C4C4C4]',
+        minWidth: '6rem',
+        className: 'font-mono text-[#C4C4C4] whitespace-nowrap',
         render: (row) => row.nuId ?? <span className="text-[#555]">—</span>,
     },
     {
         key: 'email',
         header: 'EMAIL',
-        minWidth: '16rem',
-        className: 'text-[#C4C4C4] tracking-wide',
+        minWidth: '10rem',
+        className: 'text-[#C4C4C4] tracking-wide break-all text-[10px] sm:text-xs',
     },
     {
         key: 'staffRole',
         header: 'ROLE',
-        minWidth: '10rem',
+        minWidth: '6rem',
         render: (row) => (
-            <span className="text-[10px] tracking-widest border border-primaryred text-primaryred px-2 py-0.5">
+            <span className="text-[9px] sm:text-[10px] tracking-widest border border-primaryred text-primaryred px-1.5 sm:px-2 py-0.5 whitespace-nowrap">
                 {ROLE_LABEL[row.staffRole ?? ''] ?? row.staffRole ?? 'NO_ROLE'}
             </span>
         ),
     },
     {
         key: 'extraActions',
-        header: 'EXTRA ACTIONS',
-        minWidth: '9rem',
+        header: 'EXTRA',
+        minWidth: '4rem',
         className: 'text-center',
         headerClassName: 'text-center',
         render: (row) => {
@@ -178,10 +178,10 @@ const COLUMNS: Column<StaffUser>[] = [
     {
         key: 'isApproved',
         header: 'STATUS',
-        minWidth: '7rem',
+        minWidth: '5rem',
         render: (row) => (
             <span
-                className={`text-[10px] tracking-widest border px-2 py-0.5 ${
+                className={`text-[9px] sm:text-[10px] tracking-widest border px-1.5 sm:px-2 py-0.5 whitespace-nowrap ${
                     row.isApproved
                         ? 'text-green-400 border-green-600'
                         : 'text-yellow-400 border-yellow-600'

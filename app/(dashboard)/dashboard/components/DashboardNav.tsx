@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { useAuthStore } from '@/lib/stores/authStore'
 import teamConfig, { ALL_ACTIONS } from './tabsConfig'
+import { normalizeActionId, normalizeActionIds } from '@/lib/actionIds'
 
 function getInitials(fullName: string | null): string {
     if (!fullName) return '?'
@@ -83,7 +84,8 @@ export default function DashboardNav() {
     const initials    = getInitials(user?.fullName ?? null)
     const roleLabel   = user?.staffRole ?? '—'
 
-    const userActions = user?.actions ?? []
+    const userActions = normalizeActionIds(user?.actions ?? [])
+    const userActionSet = new Set(userActions)
 
     // pathname: /dashboard/<team>
     const segments = pathname.split('/').filter(Boolean)
@@ -94,13 +96,15 @@ export default function DashboardNav() {
     // regardless of which team dashboard they are on.  This ensures cross-team actions
     // granted by a super-admin appear as tabs immediately without a re-login.
     const visibleTabs = Object.entries(ALL_ACTIONS)
-        .filter(([action]) => userActions.includes(action))
+        .filter(([action]) => userActionSet.has(action))
         .map(([action, { label }]) => ({ action, label }))
-    const activeTab = searchParams.get('tab') ?? (visibleTabs[0]?.action ?? '')
+    const requestedTab = normalizeActionId(searchParams.get('tab') ?? '')
+    const activeTab = userActionSet.has(requestedTab) ? requestedTab : (visibleTabs[0]?.action ?? '')
 
     const buildTabHref = (tabAction: string) => {
+        const normalizedTab = normalizeActionId(tabAction)
         const params = new URLSearchParams(searchParams.toString())
-        params.set('tab', tabAction)
+        params.set('tab', normalizedTab)
         return `/dashboard/${teamSlug}?${params.toString()}`
     }
 
@@ -202,15 +206,15 @@ export default function DashboardNav() {
 
             {/* Tabs */}
             {visibleTabs.length > 0 && (
-                <div className="overflow-x-auto scrollbar-none">
-                    <nav className="flex border-t border-primaryred-muted min-w-max">
+                <div className="relative border-t border-primaryred-muted">
+                    <nav className="flex flex-wrap">
                         {visibleTabs.map((tab, index) => {
                             const isActive = activeTab === tab.action
                             return (
                                 <Link
                                     key={tab.action}
                                     href={buildTabHref(tab.action)}
-                                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2.5 sm:py-3 text-[10px] sm:text-[11px] tracking-[0.08rem] sm:tracking-[0.15rem] uppercase font-medium transition-colors duration-200 whitespace-nowrap border-b-2 ${
+                                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-[10px] sm:text-[11px] tracking-[0.06rem] sm:tracking-[0.12rem] uppercase font-medium transition-colors duration-200 border-b-2 ${
                                         isActive
                                             ? 'text-white bg-[#271C1C] border-primaryred'
                                             : 'text-[#C4C4C4] hover:text-white hover:bg-[#271C1C] border-transparent'
@@ -219,7 +223,7 @@ export default function DashboardNav() {
                                     <span className="text-primaryred font-bold">
                                         {String(index + 1).padStart(2, '0')}
                                     </span>
-                                    {tab.label.toUpperCase()}
+                                    <span className="truncate max-w-32 sm:max-w-48">{tab.label.toUpperCase()}</span>
                                 </Link>
                             )
                         })}

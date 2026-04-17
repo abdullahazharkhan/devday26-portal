@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import DataTable, { Column } from './DataTable'
 import { extractPaymentProofDetails, type ExtractedPaymentProof } from '@/lib/paymentProofOcr'
@@ -42,8 +42,6 @@ interface RegistrationRow {
     referenceId: string
     paymentStatus: PaymentStatus
     paymentMethod: string | null
-    paymentProofUrl: string | null
-    note: string
     competition: { id: string; name: string; compDay: string; fee: string }
     memberCount: number
     createdAt: string
@@ -88,6 +86,86 @@ interface PaginationMeta {
     page: number
     limit: number
     totalPages: number
+}
+
+interface CachedRegistrationDetail {
+    data: RegistrationDetail
+    cachedAt: number
+}
+
+const DETAIL_CLIENT_FRESH_MS = 15_000
+const DETAIL_CLIENT_STALE_MS = 60_000
+const DETAIL_PREFETCH_TARGET = 10
+
+function detailClientCacheKey(registrationId: string): string {
+    return `registration_detail:${registrationId}`
+}
+
+function readDetailClientCache(registrationId: string): CachedRegistrationDetail | null {
+    try {
+        const raw = sessionStorage.getItem(detailClientCacheKey(registrationId))
+        if (!raw) return null
+        const parsed = JSON.parse(raw) as Partial<CachedRegistrationDetail>
+        if (!parsed || typeof parsed !== 'object') return null
+        if (!parsed.data || typeof parsed.cachedAt !== 'number') return null
+        return parsed as CachedRegistrationDetail
+    } catch {
+        return null
+    }
+}
+
+function writeDetailClientCache(registrationId: string, data: RegistrationDetail): void {
+    try {
+        const payload: CachedRegistrationDetail = { data, cachedAt: Date.now() }
+        sessionStorage.setItem(detailClientCacheKey(registrationId), JSON.stringify(payload))
+    } catch {
+        // Ignore quota/storage failures and keep the network path functional.
+    }
+}
+
+function clearDetailClientCache(registrationId: string): void {
+    try {
+        sessionStorage.removeItem(detailClientCacheKey(registrationId))
+    } catch {
+        // Best effort.
+    }
+}
+
+function mergeUniqueIds(existing: string[], incoming: string[]): string[] {
+    const seen = new Set(existing)
+    const merged = [...existing]
+
+    for (const id of incoming) {
+        if (!id || seen.has(id)) continue
+        merged.push(id)
+        seen.add(id)
+    }
+
+    return merged
+}
+
+function buildDetailPrefetchIds(ids: string[], currentIndex: number, target: number): string[] {
+    if (ids.length === 0 || target <= 0) return []
+    if (currentIndex < 0) return ids.slice(0, target)
+
+    const result: string[] = []
+    let forward = currentIndex + 1
+    let backward = currentIndex - 1
+
+    while (result.length < target && (forward < ids.length || backward >= 0)) {
+        if (forward < ids.length) {
+            result.push(ids[forward])
+            forward += 1
+            if (result.length >= target) break
+        }
+
+        if (backward >= 0) {
+            result.push(ids[backward])
+            backward -= 1
+        }
+    }
+
+    return result
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -179,11 +257,13 @@ function DetailSkeleton() {
 
 function RegistrationDetailPanel({
     registrationId,
+    prefetchRegistrationIds,
     onBack,
     onPrev,
     onNext,
 }: {
     registrationId: string
+    prefetchRegistrationIds: string[]
     onBack: () => void
     /** Navigate to previous registration. undefined = at start of list. */
     onPrev: (() => void) | undefined
@@ -220,7 +300,19 @@ function RegistrationDetailPanel({
     }, [])
 
     useEffect(() => {
-        setLoading(true)
+        const cached = readDetailClientCache(registrationId)
+        const now = Date.now()
+        const cacheAge = cached ? now - cached.cachedAt : Number.POSITIVE_INFINITY
+        const hasUsableCache = cacheAge <= DETAIL_CLIENT_STALE_MS
+
+        if (hasUsableCache && cached) {
+            setDetail(cached.data)
+            setLoading(false)
+        } else {
+            setDetail(null)
+            setLoading(true)
+        }
+
         setError(null)
         setIsEditingPayment(false)
         setImageLoaded(false)
@@ -228,14 +320,33 @@ function RegistrationDetailPanel({
         setIsRunningOcr(false)
         setOcrError(null)
         setShowRawOcrModal(false)
-        fetch(`/api/registrations/${registrationId}`)
+
+        // Fresh cache is good enough for immediate navigation; skip network.
+        if (hasUsableCache && cacheAge <= DETAIL_CLIENT_FRESH_MS) {
+            return
+        }
+
+        const controller = new AbortController()
+        fetch(`/api/registrations/${registrationId}`, { signal: controller.signal })
             .then((r) => r.json())
             .then((json) => {
-                if (json.success) setDetail(json.data)
-                else setError(json.message === 'Registration not found.' ? 'This registration no longer exists. It may have been deleted.' : json.message ?? 'Failed to load registration.')
+                if (json.success) {
+                    const nextDetail = json.data as RegistrationDetail
+                    setDetail(nextDetail)
+                    writeDetailClientCache(registrationId, nextDetail)
+                } else if (!hasUsableCache) {
+                    setError(json.message === 'Registration not found.'
+                        ? 'This registration no longer exists. It may have been deleted.'
+                        : json.message ?? 'Failed to load registration.')
+                }
             })
-            .catch(() => setError('Could not reach the server.'))
+            .catch((err: unknown) => {
+                if (err instanceof DOMException && err.name === 'AbortError') return
+                if (!hasUsableCache) setError('Could not reach the server.')
+            })
             .finally(() => setLoading(false))
+
+        return () => controller.abort()
     }, [registrationId])
 
     useEffect(() => {
@@ -248,9 +359,31 @@ function RegistrationDetailPanel({
     }, [isProofOpen])
 
     useEffect(() => {
-        if (!detail?.paymentProofUrl) return
-        runProofOcr(detail.paymentProofUrl)
-    }, [detail?.id, detail?.paymentProofUrl, runProofOcr])
+        if (prefetchRegistrationIds.length === 0) return
+
+        const controller = new AbortController()
+        const candidates = Array.from(new Set(prefetchRegistrationIds))
+            .filter((id) => id && id !== registrationId)
+            .slice(0, DETAIL_PREFETCH_TARGET)
+
+        for (const candidateId of candidates) {
+            const cached = readDetailClientCache(candidateId)
+            const isStillUsable = cached && Date.now() - cached.cachedAt <= DETAIL_CLIENT_STALE_MS
+            if (isStillUsable) continue
+
+            void fetch(`/api/registrations/${candidateId}`, { signal: controller.signal })
+                .then((response) => response.json())
+                .then((json) => {
+                    if (!json.success) return
+                    writeDetailClientCache(candidateId, json.data as RegistrationDetail)
+                })
+                .catch((err: unknown) => {
+                    if (err instanceof DOMException && err.name === 'AbortError') return
+                })
+        }
+
+        return () => controller.abort()
+    }, [registrationId, prefetchRegistrationIds])
 
     const memberColumns: Column<RegistrationMember>[] = [
         {
@@ -401,7 +534,7 @@ function RegistrationDetailPanel({
             </div>
 
             {/* ── LEFT: competition + payment + OCR  |  RIGHT: proof image only ── */}
-            <div className="flex flex-col gap-6 xl:gap-8 lg:flex-row items-start">
+            <div className="flex gap-6 xl:gap-8 items-start">
 
                 {/* LEFT column */}
                 <div className="flex flex-col gap-4 flex-1 min-w-0">
@@ -465,7 +598,7 @@ function RegistrationDetailPanel({
                         </div>
 
                         {/* Payment update controls */}
-                        <div className="flex flex-col gap-4 pt-1 sm:flex-row sm:items-start">
+                        <div className="flex gap-4 items-start pt-1">
                             {/* Button + floating status menu */}
                             <div className="relative shrink-0 flex flex-col gap-2">
                                 {isEditingPayment && (
@@ -531,6 +664,7 @@ function RegistrationDetailPanel({
                                                             if (!prev || typeof json.data !== 'object') return json.data
                                                             return { ...prev, ...json.data }
                                                         })
+                                                        clearDetailClientCache(detail.id)
                                                     }
                                                     toast.success('Payment status updated.')
                                                     setIsEditingPayment(false)
@@ -590,7 +724,7 @@ function RegistrationDetailPanel({
                         <div className="border border-primaryred-muted bg-[#1c1010] p-4 sm:p-5 flex flex-col gap-4">
                             <div className="flex items-center justify-between gap-3 flex-wrap">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] tracking-[0.2em] text-primaryred font-bold">AUTO_OCR_SCAN</span>
+                                    <span className="text-[10px] tracking-[0.2em] text-primaryred font-bold">OCR_SCAN</span>
                                     {isRunningOcr && (
                                         <span className="flex items-center gap-1.5 text-[10px] tracking-widest text-[#C4C4C4]">
                                             <span className="inline-block w-2.5 h-2.5 border border-[#C4C4C4] border-t-transparent rounded-full animate-spin" />
@@ -631,6 +765,12 @@ function RegistrationDetailPanel({
                                 </p>
                             )}
 
+                            {!ocrResult && !isRunningOcr && !ocrError && (
+                                <p className="text-[11px] tracking-wide text-[#C4C4C4] border border-primaryred-muted/40 bg-[#120b0b] px-3 py-2 leading-relaxed">
+                                    OCR is manual for faster detail loading. Click RUN OCR when you need extracted values.
+                                </p>
+                            )}
+
                             {ocrResult && !isRunningOcr && (
                                 <>
                                     <div className="grid grid-cols-3 gap-x-4 gap-y-3 border-t border-primaryred-muted/40 pt-4">
@@ -663,7 +803,7 @@ function RegistrationDetailPanel({
                                     disabled={isRunningOcr}
                                     className="text-[10px] tracking-widest text-primaryred border border-primaryred px-3 py-1.5 hover:bg-primaryred hover:text-white transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
-                                    {isRunningOcr ? 'SCANNING...' : 'RETRY OCR'}
+                                    {isRunningOcr ? 'SCANNING...' : ocrResult ? 'RETRY OCR' : 'RUN OCR'}
                                 </button>
                                 {ocrResult && !isRunningOcr && (
                                     <button
@@ -681,7 +821,7 @@ function RegistrationDetailPanel({
 
                 {/* RIGHT column — proof image only, sticky */}
                 {detail.paymentProofUrl && (
-                    <div className="w-full lg:w-[340px] xl:w-[400px] shrink-0 lg:sticky lg:top-4">
+                    <div className="w-[340px] xl:w-[400px] shrink-0 sticky top-4">
                         <div className="border border-primaryred-muted bg-[#271C1C] p-4 flex flex-col gap-3">
                             <h3 className="text-primaryred text-xs tracking-[0.2em] font-bold">PAYMENT_PROOF</h3>
                             <button
@@ -919,21 +1059,13 @@ const COMP_COLUMNS: Column<RegistrationRow>[] = [
         minWidth: '8rem',
     },
     {
-        key: '_payment',
-        header: 'PAYMENT',
-        render: () => (
-            <span className="text-primaryred text-[10px] tracking-widest opacity-60">PAYMENT PROOF →</span>
-        ),
-        minWidth: '6rem',
-    },
-    {
         key: '_action',
         header: '',
         render: () => (
             <span className="text-primaryred text-[10px] tracking-widest opacity-60">VIEW →</span>
         ),
         minWidth: '4rem',
-    }
+    },
 ]
 
 /** Columns for the "ALL" view include a competition name column. */
@@ -950,8 +1082,7 @@ const ALL_COLUMNS: Column<RegistrationRow>[] = [
     COMP_COLUMNS[3], // STATUS
     COMP_COLUMNS[4], // MEMBERS
     COMP_COLUMNS[5], // REGISTERED
-    COMP_COLUMNS[6], // PAYMENT PROOF →
-    COMP_COLUMNS[7], // VIEW →
+    COMP_COLUMNS[6], // VIEW →
 ]
 
 // ─── Competitions loading skeleton ────────────────────────────────────────────
@@ -1064,11 +1195,6 @@ function CompetitionTable({
     const [rows,      setRows]      = useState<RegistrationRow[]>([])
     const [meta,      setMeta]      = useState<PaginationMeta>({ total: 0, page: 1, limit: 15, totalPages: 0 })
     const [isLoading, setIsLoading] = useState(true)
-    const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null)
-    const [paymentUpdateStatus, setPaymentUpdateStatus] = useState<PaymentStatus>('PENDING_PAYMENT')
-    const [paymentUpdateNote, setPaymentUpdateNote] = useState('')
-    const [isUpdatingPayment, setIsUpdatingPayment] = useState(false)
-    const [proofLoadedByRow, setProofLoadedByRow] = useState<Record<string, boolean>>({})
 
     const isAll = competition === null
 
@@ -1085,12 +1211,8 @@ function CompetitionTable({
             const res  = await fetch(`/api/registrations?${params}`)
             const json = await res.json()
             if (json.success) {
-                console.log(json.data)
                 setRows(json.data)
                 setMeta(json.meta)
-                setExpandedPaymentId((prev) => (
-                    prev && json.data.some((r: RegistrationRow) => r.id === prev) ? prev : null
-                ))
                 onRowsLoaded?.(json.data.map((r: RegistrationRow) => r.id), json.meta)
             }
         } catch {
@@ -1101,43 +1223,6 @@ function CompetitionTable({
     }, [competition, page, search, statusFilter, onRowsLoaded])
 
     useEffect(() => { fetchRows() }, [fetchRows])
-
-    const handlePaymentRowToggle = useCallback((row: RegistrationRow) => {
-        setExpandedPaymentId((prev) => {
-            if (prev === row.id) return null
-            setPaymentUpdateStatus(row.paymentStatus)
-            setPaymentUpdateNote(row.note)
-            return row.id
-        })
-    }, [])
-
-    const handleInlinePaymentUpdate = useCallback(async (row: RegistrationRow) => {
-        setIsUpdatingPayment(true)
-        try {
-            const res = await fetch(`/api/registrations/${row.id}/payment-status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status: paymentUpdateStatus,
-                    note: paymentUpdateNote,
-                }),
-            })
-            const json = await res.json()
-            if (!json.success) throw new Error(json.message ?? 'Failed to update payment status.')
-
-            setRows((prev) => prev.map((r) => (
-                r.id === row.id
-                    ? { ...r, paymentStatus: paymentUpdateStatus }
-                    : r
-            )))
-
-            toast.success('Payment status updated.')
-        } catch (err) {
-            toast.error((err as Error).message ?? 'Failed to update payment status.')
-        } finally {
-            setIsUpdatingPayment(false)
-        }
-    }, [paymentUpdateStatus, paymentUpdateNote])
 
     return (
         <div className="flex flex-col gap-0 border border-t-0 border-primaryred-muted">
@@ -1199,7 +1284,6 @@ function CompetitionTable({
                         className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 pr-8 text-white text-xs tracking-widest focus:outline-none w-full appearance-none transition-colors duration-200"
                     >
                         <option value="">ALL STATUSES</option>
-                        <option value="ONHOLD">ON HOLD</option>
                         <option value="PENDING_PAYMENT">PENDING PAYMENT</option>
                         <option value="VERIFIED">VERIFIED</option>
                         <option value="REJECTED">REJECTED</option>
@@ -1220,134 +1304,6 @@ function CompetitionTable({
                 skeletonRowCount={5}
                 emptyMessage="// NO_REGISTRATIONS_FOUND"
                 onRowClick={(row) => onRowClick(row.id)}
-                onCellClick={(row, col, _rowIdx, event) => {
-                    if (col.key !== '_payment') return
-                    event.stopPropagation()
-                    handlePaymentRowToggle(row)
-                }}
-                expandedRowKey={expandedPaymentId}
-                renderExpandedRow={(row) => (
-                    <div className="grid grid-cols-1 lg:grid-cols-[480px_minmax(0,1fr)] gap-4 lg:gap-6">
-                        <div className="border border-primaryred-muted bg-[#1c1010] p-4 flex flex-col gap-4">
-                            <div className="flex flex-col gap-2">
-                                <span className="text-[10px] tracking-[0.2em] text-primaryred font-bold">PAYMENT_PROOF</span>
-                            </div>
-                            {row.paymentProofUrl ? (
-                                <div className="relative min-h-[420px] max-h-[620px] bg-[#0f0b0b] rounded-sm overflow-hidden flex items-center justify-center border border-primaryred-muted">
-                                    {!proofLoadedByRow[row.id] && (
-                                        <div className="absolute inset-0 animate-pulse bg-[#3a2525]" />
-                                    )}
-                                    <a
-                                        href={row.paymentProofUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="w-full h-full"
-                                    >
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                            src={row.paymentProofUrl}
-                                            alt={`${row.name} payment proof`}
-                                            className={`w-full h-full object-contain transition-opacity duration-300 ${proofLoadedByRow[row.id] ? '' : 'opacity-0'}`}
-                                            loading="lazy"
-                                            onLoad={() => setProofLoadedByRow((prev) => ({ ...prev, [row.id]: true }))}
-                                            onError={() => setProofLoadedByRow((prev) => ({ ...prev, [row.id]: true }))}
-                                        />
-                                    </a>
-                                </div>
-                            ) : (
-                                <div className="border border-primaryred-muted bg-[#120b0b] py-16 text-center text-[11px] tracking-widest text-[#C4C4C4] rounded-sm">
-                                    NO_PAYMENT_PROOF_UPLOADED
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="border border-primaryred-muted bg-[#1c1010] p-4 flex flex-col gap-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <span className="text-[10px] tracking-[0.2em] text-primaryred font-bold">UPDATE_PAYMENT_STATUS</span>
-                                <StatusBadge status={row.paymentStatus} />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="border border-primaryred-muted rounded-sm p-3 bg-[#171010] text-[11px] tracking-widest text-[#C4C4C4]">
-                                    <div className="text-[#7f7f7f] uppercase text-[9px]">FEE</div>
-                                    <div className="mt-2 text-white font-semibold">{row.competition.fee ? `PKR ${row.competition.fee}` : 'N/A'}</div>
-                                </div>
-                                <div className="border border-primaryred-muted rounded-sm p-3 bg-[#171010] text-[11px] tracking-widest text-[#C4C4C4]">
-                                    <div className="text-[#7f7f7f] uppercase text-[9px]">METHOD</div>
-                                    <div className="mt-2 text-white font-semibold">{row.paymentMethod ?? 'UNKNOWN'}</div>
-                                </div>
-                                <div className="border border-primaryred-muted rounded-sm p-3 bg-[#171010] text-[11px] tracking-widest text-[#C4C4C4] col-span-2">
-                                    <div className="text-[#7f7f7f] uppercase text-[9px]">PAYMENT STATUS</div>
-                                    <div className="mt-2 text-white font-semibold">{row.paymentStatus.replace('_', ' ')}</div>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-3">
-                                <div className="relative">
-                                    <select
-                                        value={paymentUpdateStatus}
-                                        onChange={(e) => setPaymentUpdateStatus(e.target.value as PaymentStatus)}
-                                        className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 pr-8 text-white text-xs tracking-widest focus:outline-none w-full appearance-none transition-colors duration-200"
-                                    >
-                                        <option value="PENDING_PAYMENT">PENDING PAYMENT</option>
-                                        <option value="VERIFIED">VERIFIED</option>
-                                        <option value="ONHOLD">ON HOLD</option>
-                                        <option value="REJECTED">REJECTED</option>
-                                    </select>
-                                    <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-primaryred">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                                            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.24 4.5a.75.75 0 0 1-1.08 0l-4.24-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
-                                        </svg>
-                                    </span>
-                                </div>
-
-                                {(paymentUpdateStatus === 'ONHOLD' || paymentUpdateStatus === 'REJECTED') && (
-                                    <div className="flex flex-col gap-1.5 min-w-0">
-                                        <div className="flex flex-wrap items-center gap-1.5">
-                                            <span className="text-[10px] tracking-widest text-primaryred shrink-0">NOTE</span>
-                                            {NOTE_PRESETS[paymentUpdateStatus].map((msg) => (
-                                                <button
-                                                    key={msg}
-                                                    type="button"
-                                                    onClick={() => setPaymentUpdateNote(msg)}
-                                                    className="text-[9px] tracking-widest text-[#C4C4C4] border border-primaryred-muted px-2 py-0.5 hover:border-primaryred hover:text-white transition-colors duration-200"
-                                                >
-                                                    {msg}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <textarea
-                                            value={paymentUpdateNote||''}
-                                            onChange={(e) => setPaymentUpdateNote(e.target.value)}
-                                            rows={2}
-                                            className="bg-[#271C1C] border border-primaryred-muted focus:border-primaryred focus:ring-1 focus:ring-primaryred p-2.5 text-white text-xs tracking-widest focus:outline-none w-full transition-colors duration-200 resize-none"
-                                            placeholder="Message to send to user about payment status update..."
-                                        />
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => handleInlinePaymentUpdate(row)}
-                                    disabled={isUpdatingPayment}
-                                    className="text-xs tracking-widest text-primaryred border border-primaryred px-4 py-2 hover:bg-primaryred hover:text-white transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                    {isUpdatingPayment ? 'UPDATING…' : 'SAVE'}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setExpandedPaymentId(null)}
-                                    disabled={isUpdatingPayment}
-                                    className="text-xs tracking-widest text-[#C4C4C4] border border-primaryred-muted px-4 py-2 hover:border-primaryred hover:text-white transition-colors duration-200"
-                                >
-                                    CLOSE
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
             />
 
             {/* Pagination */}
@@ -1397,7 +1353,7 @@ export default function ViewRegistrationsTab() {
 
     // Accumulate IDs: fresh start on page 1, append on subsequent pages
     const handleRowsLoaded = useCallback((ids: string[], meta: PaginationMeta) => {
-        setAllIds(prev => meta.page === 1 ? ids : [...prev, ...ids])
+        setAllIds((prev) => (meta.page === 1 ? mergeUniqueIds([], ids) : mergeUniqueIds(prev, ids)))
         setTblMeta(meta)
     }, [])
 
@@ -1446,9 +1402,15 @@ export default function ViewRegistrationsTab() {
             .finally(() => setCompsLoading(false))
     }, [])
 
+    const selectedIndex = selectedId ? allIds.indexOf(selectedId) : -1
+    const prefetchIds = useMemo(
+        () => buildDetailPrefetchIds(allIds, selectedIndex, DETAIL_PREFETCH_TARGET),
+        [allIds, selectedIndex]
+    )
+
     // ── Detail panel ───────────────────────────────────────────────────────
     if (selectedId) {
-        const idx = allIds.indexOf(selectedId)
+        const idx = selectedIndex
 
         const onPrev = idx > 0
             ? () => setSelectedId(allIds[idx - 1])
@@ -1458,9 +1420,9 @@ export default function ViewRegistrationsTab() {
         const onNext: (() => void) | undefined =
             idx >= 0 && idx < allIds.length - 1
                 ? () => setSelectedId(allIds[idx + 1])
-                : tblMeta.page < tblMeta.totalPages
+                : tblPage < tblMeta.totalPages
                     ? async () => {
-                        const nextPage = tblMeta.page + 1
+                        const nextPage = tblPage + 1
                         const params = new URLSearchParams()
                         params.set('page', String(nextPage))
                         params.set('limit', '15')
@@ -1475,8 +1437,8 @@ export default function ViewRegistrationsTab() {
                             const json = await res.json()
                             if (json.success && json.data.length > 0) {
                                 const newIds: string[] = json.data.map((r: RegistrationRow) => r.id)
-                                setAllIds(prev => [...prev, ...newIds])
-                                setTblMeta(json.meta)
+                                setAllIds((prev) => mergeUniqueIds(prev, newIds))
+                                setTblMeta((prev) => ({ ...prev, ...json.meta, page: nextPage }))
                                 setTblPage(nextPage)
                                 setSelectedId(newIds[0])
                             }
@@ -1487,6 +1449,7 @@ export default function ViewRegistrationsTab() {
         return (
             <RegistrationDetailPanel
                 registrationId={selectedId}
+                prefetchRegistrationIds={prefetchIds}
                 onBack={() => setSelectedId(null)}
                 onPrev={onPrev}
                 onNext={onNext}

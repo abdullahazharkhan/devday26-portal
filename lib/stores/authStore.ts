@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { normalizeActionIds } from '@/lib/actionIds'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -12,6 +13,14 @@ export interface AuthUser {
     staffRole:  string | null    // 'EXCOM' | 'PR' | 'GR' | 'FOOD' | 'COMPETITIONS' | 'SUPERADMIN'
     isApproved: boolean | null
     actions:    string[]         // kebab-case action IDs the user is authorised to perform
+}
+
+function normalizeAuthUser(user: AuthUser): AuthUser {
+    return {
+        ...user,
+        staffRole: user.staffRole ? user.staffRole.toUpperCase() : null,
+        actions: normalizeActionIds(user.actions),
+    }
 }
 
 interface AuthState {
@@ -42,7 +51,7 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             lastFetchedAt: null,
 
-            setUser: (user) => set({ user, lastFetchedAt: Date.now() }),
+            setUser: (user) => set({ user: normalizeAuthUser(user), lastFetchedAt: Date.now() }),
 
             clearUser: () => set({ user: null, lastFetchedAt: null }),
 

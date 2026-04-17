@@ -72,8 +72,34 @@ export default function DataTable<T = Record<string, unknown>>({
     expandedRowKey,
     renderExpandedRow,
 }: DataTableProps<T>) {
+    const scrollRef = React.useRef<HTMLDivElement>(null)
+    const [showLeftShadow, setShowLeftShadow] = React.useState(false)
+    const [showRightShadow, setShowRightShadow] = React.useState(false)
+
+    React.useEffect(() => {
+        const el = scrollRef.current
+        if (!el) return
+        const check = () => {
+            setShowLeftShadow(el.scrollLeft > 4)
+            setShowRightShadow(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+        }
+        check()
+        el.addEventListener('scroll', check, { passive: true })
+        const ro = new ResizeObserver(check)
+        ro.observe(el)
+        return () => { el.removeEventListener('scroll', check); ro.disconnect() }
+    }, [rows, columns])
+
     return (
-        <div className="border border-primaryred-muted bg-[#191111] overflow-x-auto">
+        <div className="border border-primaryred-muted bg-[#191111] relative">
+            {/* Scroll shadow indicators */}
+            {showLeftShadow && (
+                <div className="absolute left-0 top-0 bottom-0 w-6 bg-linear-to-r from-[#191111] to-transparent z-10 pointer-events-none" />
+            )}
+            {showRightShadow && (
+                <div className="absolute right-0 top-0 bottom-0 w-6 bg-linear-to-l from-[#191111] to-transparent z-10 pointer-events-none" />
+            )}
+            <div ref={scrollRef} className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
 
                 {/* ── Header ────────────────────────────────────────────── */}
@@ -82,7 +108,7 @@ export default function DataTable<T = Record<string, unknown>>({
                         {columns.map((col) => (
                             <th
                                 key={col.key}
-                                className={`px-4 py-3 text-primaryred tracking-[0.18em] font-semibold whitespace-nowrap select-none ${col.headerClassName ?? ''}`}
+                                className={`px-3 sm:px-4 py-3 text-primaryred tracking-[0.18em] font-semibold whitespace-nowrap select-none text-[10px] sm:text-xs ${col.headerClassName ?? ''}`}
                                 style={col.minWidth ? { minWidth: col.minWidth } : undefined}
                             >
                                 {col.header}
@@ -123,7 +149,7 @@ export default function DataTable<T = Record<string, unknown>>({
                                                 onClick={onCellClick
                                                     ? (event) => onCellClick(row, col, rowIdx, event)
                                                     : undefined}
-                                                className={`px-4 py-3 text-white align-middle whitespace-nowrap ${col.className ?? ''}`}
+                                                className={`px-3 sm:px-4 py-3 text-white align-middle ${col.className ?? ''}`}
                                                 style={col.minWidth ? { minWidth: col.minWidth } : undefined}
                                             >
                                                 {col.render
@@ -146,6 +172,7 @@ export default function DataTable<T = Record<string, unknown>>({
                     )}
                 </tbody>
             </table>
+            </div>
         </div>
     )
 }
