@@ -44,8 +44,7 @@ export const ROLE_DEFAULT_ACTIONS: Record<string, string[]> = {
     FOOD: [
         'view-stall-details',
         'add-new-stall',
-        'edit-stall',
-        'delete-stall',
+        'edit-stall'
     ],
     GR: [
         'view-all-companies',
@@ -55,9 +54,14 @@ export const ROLE_DEFAULT_ACTIONS: Record<string, string[]> = {
         'delete-company',
     ],
     PR: [
+        'view-all-companies',
+        'add-new-company',
+        'assign-booth',
+        'edit-company',
+        'delete-company',
+        'update-attendance',
         'view-registration-details',
         'create-new-registration',
-        'update-attendance',
     ],
     EXCOM: [
         'view-all-portal-users',
@@ -88,7 +92,6 @@ export const teamConfig: Record<string, TeamConfig> = {
             { action: 'view-stall-details', label: 'View Stall Details' },
             { action: 'add-new-stall',      label: 'Add New Stall' },
             { action: 'edit-stall',         label: 'Edit Stall' },
-            { action: 'delete-stall',       label: 'Delete Stall' },
         ],
     },
     gr: {
@@ -104,9 +107,14 @@ export const teamConfig: Record<string, TeamConfig> = {
     pr: {
         label: 'PR',
         tabs: [
-            { action: 'view-registration-details', label: 'View All Registrations' },
+            { action: 'view-all-companies', label: 'View All Companies' },
+            { action: 'add-new-company',    label: 'Add New Company' },
+            { action: 'assign-booth',       label: 'Assign Booth' },
+            { action: 'edit-company',       label: 'Edit Company' },
+            { action: 'delete-company',     label: 'Delete Company' },
+            { action: 'update-attendance',  label: 'Update Attendance' },
+            { action: 'view-registration-details', label: 'View Registration Details' },
             { action: 'create-new-registration',   label: 'Create New Registration' },
-            { action: 'update-attendance',          label: 'Update Attendance' },
         ],
     },
     'super-admin': {

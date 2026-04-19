@@ -28,6 +28,14 @@ import AmbassadorDashboard         from '../ambassador-management/AmbassadorDash
 import ManageAmbassadors           from '../ambassador-management/ManageAmbassadors'
 
 import EditCompetition             from '../competitions/EditCompetition'
+import ViewStallDetailsTab        from '../food/ViewStallDetailsTab'
+import AddNewStallTab             from '../food/AddNewStallTab'
+import EditStallTab               from '../food/EditStallTab'
+import ViewAllCompaniesTab        from '../pr/ViewAllCompaniesTab'
+import AddNewCompanyTab           from '../pr/AddNewCompanyTab'
+import AssignBoothTab             from '../pr/AssignBoothTab'
+import EditCompanyTab             from '../pr/EditCompanyTab'
+import DeleteCompanyTab           from '../pr/DeleteCompanyTab'
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -47,6 +55,18 @@ function renderContent(actionId: string): React.ReactNode {
 
         // ── Competitions ──────────────────────────────────────────────────────
         case 'edit-competition':           return <EditCompetition />
+
+        // ── Food ─────────────────────────────────────────────────────────────
+        case 'view-stall-details':         return <ViewStallDetailsTab />
+        case 'add-new-stall':              return <AddNewStallTab />
+        case 'edit-stall':                 return <EditStallTab />
+
+        // ── PR / Companies ───────────────────────────────────────────────────
+        case 'view-all-companies':         return <ViewAllCompaniesTab />
+        case 'add-new-company':            return <AddNewCompanyTab />
+        case 'assign-booth':               return <AssignBoothTab />
+        case 'edit-company':               return <EditCompanyTab />
+        case 'delete-company':             return <DeleteCompanyTab />
 
         // ── Super Admin ───────────────────────────────────────────────────────
         case 'view-all-portal-users':      return <ViewAllUsersTable />

@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { Suspense } from "react";
 import DashboardNav from "./components/DashboardNav";
-import DashboardStats from "./components/DashboardStats";
+import DashboardStatsGate from "./components/DashboardStatsGate";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 export const metadata: Metadata = {
@@ -23,9 +23,7 @@ export default function DashboardLayout({
             </Suspense>
             <main className="flex-1 px-4 sm:px-6 md:px-8 py-6 sm:py-8">
                 <div className="flex flex-col gap-8">
-                    <Suspense fallback={<div />}>
-                        <DashboardStats />
-                    </Suspense>
+                    <DashboardStatsGate />
                     <ErrorBoundary>
                         {children}
                     </ErrorBoundary>
