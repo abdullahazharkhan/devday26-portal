@@ -36,6 +36,7 @@ import AddNewCompanyTab           from '../pr/AddNewCompanyTab'
 import AssignBoothTab             from '../pr/AssignBoothTab'
 import EditCompanyTab             from '../pr/EditCompanyTab'
 import DeleteCompanyTab           from '../pr/DeleteCompanyTab'
+import ManagePrQueriesTab         from './ManagePrQueriesTab'
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -67,6 +68,9 @@ function renderContent(actionId: string): React.ReactNode {
         case 'assign-booth':               return <AssignBoothTab />
         case 'edit-company':               return <EditCompanyTab />
         case 'delete-company':             return <DeleteCompanyTab />
+
+        // ── PR Queries ────────────────────────────────────────────────────────
+        case 'manage-pr-queries':          return <ManagePrQueriesTab />
 
         // ── Super Admin ───────────────────────────────────────────────────────
         case 'view-all-portal-users':      return <ViewAllUsersTable />

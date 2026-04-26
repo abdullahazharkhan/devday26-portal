@@ -32,6 +32,7 @@ export const ALL_ACTIONS: Record<string, { label: string }> = {
     'update-participant-record': { label: 'Update Participant Record' },
     'view-ambassador-dashboard': { label: 'View Ambassador Dashboard' },
     'manage-ambassadors':        { label: 'Manage Ambassadors' },
+    'manage-pr-queries':         { label: 'Manage PR Queries' },
 }
 
 // ─── Default actions per StaffRole ───────────────────────────────────────────
@@ -62,6 +63,7 @@ export const ROLE_DEFAULT_ACTIONS: Record<string, string[]> = {
         'update-attendance',
         'view-registration-details',
         'create-new-registration',
+        'manage-pr-queries',
     ],
     EXCOM: [
         'view-all-portal-users',
@@ -115,6 +117,7 @@ export const teamConfig: Record<string, TeamConfig> = {
             { action: 'update-attendance',  label: 'Update Attendance' },
             { action: 'view-registration-details', label: 'View Registration Details' },
             { action: 'create-new-registration',   label: 'Create New Registration' },
+            { action: 'manage-pr-queries',         label: 'Manage PR Queries' },
         ],
     },
     'super-admin': {
