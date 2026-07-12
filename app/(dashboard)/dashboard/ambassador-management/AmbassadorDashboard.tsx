@@ -245,7 +245,7 @@ export default function AmbassadorDashboard() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
 
                 {/* Search */}
-                <div className="relative flex-1 min-w-[200px]">
+                <div className="relative flex-1 min-w-50">
                     <input
                         type="text"
                         placeholder="Search name, email, CNIC, code..."
@@ -308,7 +308,7 @@ export default function AmbassadorDashboard() {
 
             {/* Table */}
             <div className="border border-primaryred-muted overflow-x-auto">
-                <table className="w-full text-xs text-left min-w-[640px]">
+                <table className="w-full text-xs text-left min-w-160">
                     <thead>
                         <tr className="border-b border-primaryred-muted bg-[#271C1C]">
                             {['RANK', 'FULL NAME', 'EMAIL', 'CNIC', 'INSTITUTE', 'REFERRAL CODE', 'REFERRALS', 'STATUS'].map((h) => (

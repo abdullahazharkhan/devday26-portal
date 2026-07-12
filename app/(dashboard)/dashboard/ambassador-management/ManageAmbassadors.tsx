@@ -79,7 +79,7 @@ function Modal({
         >
             <div className="w-full max-w-xl bg-[#191111] border border-primaryred-muted flex flex-col max-h-[90vh]">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-primaryred-muted bg-[#271C1C] flex-shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-primaryred-muted bg-[#271C1C] shrink-0">
                     <h2 className="text-sm font-bold tracking-[0.2em] text-white">
                         {mode === 'create' ? '+ NEW AMBASSADOR' : '✎ EDIT AMBASSADOR'}
                     </h2>
@@ -198,7 +198,7 @@ function Modal({
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-primaryred-muted bg-[#271C1C] flex-shrink-0">
+                <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-primaryred-muted bg-[#271C1C] shrink-0">
                     <button
                         type="button"
                         onClick={onClose}
@@ -485,7 +485,7 @@ export default function ManageAmbassadors() {
 
                 {/* Table */}
                 <div className="border border-primaryred-muted overflow-x-auto">
-                    <table className="w-full text-xs text-left min-w-[720px]">
+                    <table className="w-full text-xs text-left min-w-180">
                         <thead>
                             <tr className="border-b border-primaryred-muted bg-[#271C1C]">
                                 {['#', 'FULL NAME', 'EMAIL', 'CNIC', 'INSTITUTE', 'REFERRAL CODE', 'REFERRALS', 'STATUS', 'ACTIONS'].map((h) => (
