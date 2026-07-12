@@ -302,7 +302,7 @@ export default function AmbassadorDashboard() {
             {/* Error */}
             {error && (
                 <div className="border border-red-800 bg-red-900/20 px-5 py-4 text-red-400 text-xs tracking-widest">
-                    // ERROR: {error}
+                    {`// ERROR: ${error}`}
                 </div>
             )}
 
@@ -324,7 +324,7 @@ export default function AmbassadorDashboard() {
                         ) : paginated.length === 0 ? (
                             <tr>
                                 <td colSpan={8} className="px-4 py-16 text-center text-[#C4C4C4] tracking-widest">
-                                    // NO_AMBASSADORS_FOUND
+                                    {'// NO_AMBASSADORS_FOUND'}
                                 </td>
                             </tr>
                         ) : (

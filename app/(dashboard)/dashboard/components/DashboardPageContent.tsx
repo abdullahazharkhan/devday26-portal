@@ -10,24 +10,32 @@
  * are automatically rendered here without touching individual page files.
  */
 
+import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/authStore'
 import { ALL_ACTIONS } from './tabsConfig'
 
 // ─── Tab component imports ────────────────────────────────────────────────────
-import ViewRegistrationsTab        from './ViewRegistrationsTab'
-import CreateRegistrationTab       from './CreateRegistrationTab'
-import UpdateAttendanceTab         from './UpdateAttendanceTab'
-import UpdateParticipantRecordTab  from './UpdateParticipantRecordTab'
+function TabLoading() {
+    return (
+        <div className="border border-primaryred-muted bg-[#271C1C] p-5 sm:p-8 md:p-10 min-h-64 sm:min-h-80 flex items-center justify-center">
+            <div className="w-36 h-4 animate-pulse bg-[#3a2525] rounded-sm" />
+        </div>
+    )
+}
 
-import ViewAllUsersTable           from '../super-admin/ViewAllUsersTable'
-import CreateAccountForm           from '../super-admin/CreateAccountForm'
-import AssignActionsForm           from '../super-admin/AssignActionsForm'
-
-import AmbassadorDashboard         from '../ambassador-management/AmbassadorDashboard'
-import ManageAmbassadors           from '../ambassador-management/ManageAmbassadors'
-
-import EditCompetition             from '../competitions/EditCompetition'
+// Keep each action in its own chunk. Users only download the tab they open.
+const ViewRegistrationsTab = dynamic(() => import('./ViewRegistrationsTab'), { loading: TabLoading })
+const CreateRegistrationTab = dynamic(() => import('./CreateRegistrationTab'), { loading: TabLoading })
+const UpdateAttendanceTab = dynamic(() => import('./UpdateAttendanceTab'), { loading: TabLoading })
+const UpdateParticipantRecordTab = dynamic(() => import('./UpdateParticipantRecordTab'), { loading: TabLoading })
+const ViewAllUsersTable = dynamic(() => import('../super-admin/ViewAllUsersTable'), { loading: TabLoading })
+const CreateAccountForm = dynamic(() => import('../super-admin/CreateAccountForm'), { loading: TabLoading })
+const AssignActionsForm = dynamic(() => import('../super-admin/AssignActionsForm'), { loading: TabLoading })
+const AmbassadorDashboard = dynamic(() => import('../ambassador-management/AmbassadorDashboard'), { loading: TabLoading })
+const ManageAmbassadors = dynamic(() => import('../ambassador-management/ManageAmbassadors'), { loading: TabLoading })
+const EditCompetition = dynamic(() => import('../competitions/EditCompetition'), { loading: TabLoading })
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -64,11 +72,6 @@ function renderContent(actionId: string): React.ReactNode {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Props = {
-    /** The raw `?tab=` search-param value from the parent server component. */
-    tabParam?: string
-}
-
 const SKELETON = (
     <div className="flex flex-col gap-8">
         <div>
@@ -81,9 +84,10 @@ const SKELETON = (
     </div>
 )
 
-export default function DashboardPageContent({ tabParam }: Props) {
+export default function DashboardPageContent() {
     const [hasMounted, setHasMounted] = useState(false)
     const user = useAuthStore((s) => s.user)
+    const searchParams = useSearchParams()
 
     useEffect(() => {
         setHasMounted(true) // eslint-disable-line react-hooks/set-state-in-effect
@@ -96,9 +100,10 @@ export default function DashboardPageContent({ tabParam }: Props) {
 
     // Use the requested tab if the user actually holds that action;
     // otherwise fall back to the user's first available action.
+    const requestedTab = searchParams.get('tab')
     const activeActionId =
-        tabParam && userActions.includes(tabParam)
-            ? tabParam
+        requestedTab && userActions.includes(requestedTab)
+            ? requestedTab
             : (userActions.find((a) => ALL_ACTIONS[a]) ?? '')
 
     const title = ALL_ACTIONS[activeActionId]?.label?.toUpperCase() ?? activeActionId.toUpperCase()

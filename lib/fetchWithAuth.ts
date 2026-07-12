@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:5000'
+import { fetchBackend } from '@/lib/backendFetch'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,15 +17,18 @@ interface FetchWithAuthResult {
 
 // ─── Internal: call /auth/refresh with the current refresh_token ──────────────
 
-async function attemptRefresh(req: NextRequest): Promise<{
+type RefreshResult = {
     newAccessToken: string | null
     setCookieHeaders: string[]
-}> {
-    const refreshToken = req.cookies.get('refresh_token')?.value
-    if (!refreshToken) return { newAccessToken: null, setCookieHeaders: [] }
+}
 
+// Several dashboard requests can arrive together after an access token expires.
+// Reuse one refresh exchange instead of rotating the same token concurrently.
+const refreshInFlight = new Map<string, Promise<RefreshResult>>()
+
+async function refreshSession(refreshToken: string): Promise<RefreshResult> {
     try {
-        const res = await fetch(`${BACKEND_URL}/auth/refresh`, {
+        const res = await fetchBackend('/auth/refresh', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ refreshToken }),
@@ -58,6 +60,25 @@ async function attemptRefresh(req: NextRequest): Promise<{
     }
 }
 
+async function attemptRefresh(req: NextRequest): Promise<RefreshResult> {
+    const refreshToken = req.cookies.get('refresh_token')?.value
+    if (!refreshToken) return { newAccessToken: null, setCookieHeaders: [] }
+
+    const existingRefresh = refreshInFlight.get(refreshToken)
+    if (existingRefresh) return existingRefresh
+
+    const refresh = refreshSession(refreshToken)
+    refreshInFlight.set(refreshToken, refresh)
+
+    try {
+        return await refresh
+    } finally {
+        if (refreshInFlight.get(refreshToken) === refresh) {
+            refreshInFlight.delete(refreshToken)
+        }
+    }
+}
+
 // ─── Public helper ────────────────────────────────────────────────────────────
 
 /**
@@ -78,6 +99,7 @@ export async function fetchWithAuth(
 ): Promise<FetchWithAuthResult> {
     let accessToken = req.cookies.get('access_token')?.value
     let prefetchCookies: string[] = []
+    let didRefresh = false
 
     // ── No access_token: try to refresh before giving up ──────────────────────
     if (!accessToken) {
@@ -88,17 +110,24 @@ export async function fetchWithAuth(
         }
         accessToken    = newAccessToken
         prefetchCookies = setCookieHeaders
+        didRefresh = true
     }
 
     const headers = new Headers((init.headers as HeadersInit | undefined) ?? {})
     headers.set('Authorization', `Bearer ${accessToken}`)
 
     // ── First attempt ─────────────────────────────────────────────────────────
-    let res = await fetch(`${BACKEND_URL}${backendPath}`, { ...init, headers })
+    let res = await fetchBackend(backendPath, { ...init, headers })
     let data = await res.json()
 
     if (res.status !== 401) {
         return { data, status: res.status, setCookieHeaders: prefetchCookies }
+    }
+
+    // The token obtained above was already rejected; do not exchange the stale
+    // request cookie a second time within the same API request.
+    if (didRefresh) {
+        return { data, status: 401, setCookieHeaders: [] }
     }
 
     // ── 401: try to refresh (access_token became stale mid-session) ───────────
@@ -111,7 +140,7 @@ export async function fetchWithAuth(
 
     // ── Retry with fresh token ────────────────────────────────────────────────
     headers.set('Authorization', `Bearer ${newAccessToken}`)
-    res  = await fetch(`${BACKEND_URL}${backendPath}`, { ...init, headers })
+    res  = await fetchBackend(backendPath, { ...init, headers })
     data = await res.json()
 
     return { data, status: res.status, setCookieHeaders }

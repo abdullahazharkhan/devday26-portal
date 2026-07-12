@@ -192,7 +192,7 @@ function Modal({
 
                     {mode === 'create' && (
                         <p className="text-[10px] tracking-widest text-[#555]">
-                            // REFERRAL_CODE WILL BE AUTO-GENERATED
+                            {'// REFERRAL_CODE WILL BE AUTO-GENERATED'}
                         </p>
                     )}
                 </div>
@@ -255,7 +255,7 @@ function DeleteConfirm({
                         <p className="text-primaryred font-mono text-xs mt-0.5 tracking-wider">{ambassador.referralCode}</p>
                     </div>
                     <p className="text-red-400 text-xs tracking-widest mt-4">
-                        // THIS ACTION CANNOT BE UNDONE
+                        {'// THIS ACTION CANNOT BE UNDONE'}
                     </p>
                 </div>
                 <div className="flex justify-end gap-3 px-6 py-4 border-t border-primaryred-muted bg-[#271C1C]">
@@ -384,8 +384,17 @@ export default function ManageAmbassadors() {
                 return
             }
 
+            const updatedAmbassador = json.data
+            if (updatedAmbassador) {
+                setAmbassadors((current) => modal?.mode === 'create'
+                    ? [updatedAmbassador, ...current]
+                    : current.map((ambassador) => ambassador.id === updatedAmbassador.id ? updatedAmbassador : ambassador)
+                )
+            } else {
+                void fetchAmbassadors()
+            }
+
             closeModal()
-            fetchAmbassadors()
         } catch {
             setModalError('Network error — could not reach server.')
         } finally {
@@ -402,8 +411,8 @@ export default function ManageAmbassadors() {
             const res  = await apiFetch(`/api/ambassadors/${deleteTarget.id}`, { method: 'DELETE' })
             const json = await res.json() as { success: boolean; message?: string }
             if (json.success) {
+                setAmbassadors((current) => current.filter((ambassador) => ambassador.id !== deleteTarget.id))
                 setDeleteTarget(null)
-                fetchAmbassadors()
             }
         } catch {
             // silent — leave dialog open
@@ -470,7 +479,7 @@ export default function ManageAmbassadors() {
                 {/* Error banner */}
                 {error && (
                     <div className="border border-red-800 bg-red-900/20 px-5 py-4 text-red-400 text-xs tracking-widest">
-                        // ERROR: {error}
+                        {`// ERROR: ${error}`}
                     </div>
                 )}
 
@@ -492,7 +501,7 @@ export default function ManageAmbassadors() {
                             ) : sorted.length === 0 ? (
                                 <tr>
                                     <td colSpan={9} className="px-4 py-16 text-center text-[#C4C4C4] tracking-widest">
-                                        // NO_AMBASSADORS_FOUND — click &ldquo;+ NEW AMBASSADOR&rdquo; to add one
+                                        {'// NO_AMBASSADORS_FOUND — click "+ NEW AMBASSADOR" to add one'}
                                     </td>
                                 </tr>
                             ) : (

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChartNoAxesColumn, CircleCheckBig, Hourglass, Users, type LucideIcon } from 'lucide-react'
 import { useAuthStore } from '@/lib/stores/authStore'
+import { apiFetch } from '@/lib/apiClient'
 
 interface DashboardStats {
     totalRegistrations: number
@@ -93,7 +94,7 @@ export default function DashboardStats() {
             setIsLoading(true)
             setError(null)
             try {
-                const res = await fetch('/api/dashboard/stats')
+                const res = await apiFetch('/api/dashboard/stats')
                 const json = await res.json()
                 if (json.success) {
                     setStats(json.data)

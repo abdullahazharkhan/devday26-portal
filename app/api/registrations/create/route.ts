@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchWithAuth, applyCookies, unauthorizedResponse } from '@/lib/fetchWithAuth'
+import { invalidateStatsCache } from '@/lib/dashboardStatsCache'
 
 /**
  * POST /api/registrations/create
@@ -19,6 +20,7 @@ export async function POST(req: NextRequest) {
         )
 
         if (status === 401) return unauthorizedResponse()
+        if (status >= 200 && status < 300) invalidateStatsCache()
 
         const response = NextResponse.json(data, { status })
         applyCookies(response, setCookieHeaders)

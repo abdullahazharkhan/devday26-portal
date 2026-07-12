@@ -423,7 +423,7 @@ export default function AssignActionsForm() {
             {/* Empty state */}
             {!isLoading && filtered.length === 0 && (
                 <div className="border border-primaryred-muted bg-[#271C1C] p-10 flex items-center justify-center">
-                    <p className="text-[#C4C4C4] text-xs tracking-widest">// NO_USERS_MATCH_FILTERS</p>
+                    <p className="text-[#C4C4C4] text-xs tracking-widest">{'// NO_USERS_MATCH_FILTERS'}</p>
                 </div>
             )}
 

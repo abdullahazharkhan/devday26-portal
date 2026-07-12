@@ -371,7 +371,7 @@ export default function ViewAllUsersTable() {
             {/* ── Error state ──────────────────────────────────────────────── */}
             {error && (
                 <div className="border border-red-800 bg-red-900/20 px-5 py-4 text-red-400 text-xs tracking-widest">
-                    // ERROR: {error}
+                    {`// ERROR: ${error}`}
                 </div>
             )}
 

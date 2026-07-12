@@ -342,7 +342,7 @@ function EditPanel({
                     </div>
                     {selectedVenues.length === 0 && (
                         <p className="text-[11px] tracking-wider text-[#C4C4C4] opacity-60">
-                            // No venues selected — competition will have no venue assigned.
+                            {'// No venues selected — competition will have no venue assigned.'}
                         </p>
                     )}
                 </div>
@@ -453,7 +453,7 @@ export default function EditCompetition() {
             {/* Error */}
             {error && (
                 <div className="border border-red-800 bg-red-900/20 px-5 py-4 text-red-400 text-xs tracking-widest">
-                    // ERROR: {error}
+                    {`// ERROR: ${error}`}
                 </div>
             )}
 
@@ -465,7 +465,7 @@ export default function EditCompetition() {
                         : competitions.length === 0
                         ? (
                             <div className="col-span-full border border-primaryred-muted bg-[#271C1C] p-10 flex items-center justify-center">
-                                <p className="text-[#C4C4C4] text-xs tracking-widest">// NO_COMPETITIONS_FOUND</p>
+                                <p className="text-[#C4C4C4] text-xs tracking-widest">{'// NO_COMPETITIONS_FOUND'}</p>
                             </div>
                         )
                         : competitions.map((c) => (

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import DashboardNav from "./components/DashboardNav";
 import DashboardStats from "./components/DashboardStats";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
     title: "DevDay '26 Portal - Dashboard",
@@ -31,6 +32,7 @@ export default function DashboardLayout({
                     </ErrorBoundary>
                 </div>
             </main>
+            <Toaster position="top-right" richColors />
         </div>
     );
 }

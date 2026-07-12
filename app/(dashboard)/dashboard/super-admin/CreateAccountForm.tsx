@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { apiFetch } from '@/lib/apiClient'
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -129,7 +130,7 @@ export default function CreateAccountForm() {
         setCredentials(null)
 
         try {
-            const res = await fetch('/api/auth/register', {
+            const res = await apiFetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -330,7 +331,7 @@ export default function CreateAccountForm() {
                             <h2 className="text-white text-base font-bold tracking-widest">ACCOUNT_CREATED</h2>
                             <div className="w-10 h-0.5 bg-primaryred mt-1.5" />
                             <p className="text-[#C4C4C4] text-xs tracking-wider mt-2">
-                                // SAVE THESE CREDENTIALS — PASSWORD IS NOT RECOVERABLE AFTER LEAVING THIS PAGE
+                                {'// SAVE THESE CREDENTIALS — PASSWORD IS NOT RECOVERABLE AFTER LEAVING THIS PAGE'}
                             </p>
                         </div>
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { apiFetch } from '@/lib/apiClient'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -291,7 +292,7 @@ export default function CreateRegistrationTab() {
     // ── Fetch competitions ─────────────────────────────────────────────────
     useEffect(() => {
         setCompsLoading(true)
-        fetch('/api/registrations/competitions-form')
+        apiFetch('/api/registrations/competitions-form')
             .then((r) => r.json())
             .then((json) => { if (json.success) setCompetitions(json.data) })
             .catch(() => {/* silent */})
@@ -319,7 +320,7 @@ export default function CreateRegistrationTab() {
         setServerError('')
 
         try {
-            const res = await fetch('/api/registrations/create', {
+            const res = await apiFetch('/api/registrations/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -349,7 +350,7 @@ export default function CreateRegistrationTab() {
         // Step 1: Check clashes
         try {
             const cnics = data.members.map((m) => m.cnic)
-            const res = await fetch('/api/registrations/check-clashes', {
+            const res = await apiFetch('/api/registrations/check-clashes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ competitionId: data.competitionId, cnics }),

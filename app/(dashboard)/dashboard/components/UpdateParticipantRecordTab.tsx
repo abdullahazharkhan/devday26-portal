@@ -610,20 +610,6 @@ export default function UpdateParticipantRecordTab() {
             }
         }))
 
-        // Re-fetch to get accurate data after change
-        const email = emailInput.trim()
-        if (email) {
-            apiFetch(`/api/participants/by-email?email=${encodeURIComponent(email)}`)
-                .then((r) => r.json())
-                .then((json) => {
-                    if (json.success) {
-                        setProfile(json.data.participant)
-                        setTeams(json.data.teams)
-                    }
-                })
-                .catch(() => {/* silent */})
-        }
-
         setChangedTeams((prev) => new Set([...prev, teamId]))
         setActiveTeam(null)
     }

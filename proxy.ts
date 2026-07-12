@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchBackend } from '@/lib/backendFetch'
 
 // ─── Route → required role mapping ───────────────────────────────────────────
 const ROUTE_ROLE: Record<string, string> = {
@@ -112,8 +113,7 @@ export async function proxy(req: NextRequest) {
 
         // Attempt token refresh inline (middleware can use fetch)
         try {
-            const backendUrl = process.env.BACKEND_URL ?? 'http://localhost:5000'
-            const refreshRes = await fetch(`${backendUrl}/auth/refresh`, {
+            const refreshRes = await fetchBackend('/auth/refresh', {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body:    JSON.stringify({ refreshToken }),

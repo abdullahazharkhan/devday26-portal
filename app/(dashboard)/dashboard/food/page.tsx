@@ -1,8 +1,5 @@
-import DashboardPageContent from '../components/DashboardPageContent'
+import DashboardPageShell from '../components/DashboardPageShell'
 
-type Props = { searchParams: Promise<{ tab?: string }> }
-
-export default async function FoodPage({ searchParams }: Props) {
-    const { tab } = await searchParams
-    return <DashboardPageContent tabParam={tab} />
+export default function FoodPage() {
+    return <DashboardPageShell />
 }

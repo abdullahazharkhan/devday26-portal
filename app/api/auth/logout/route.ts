@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:5000'
+import { fetchBackend } from '@/lib/backendFetch'
 
 /**
  * POST /api/auth/logout
@@ -16,10 +15,10 @@ export async function POST(req: NextRequest) {
     // Best-effort revocation — fire and don't block on failure
     if (accessToken) {
         try {
-            await fetch(`${BACKEND_URL}/auth/logout`, {
+            await fetchBackend('/auth/logout', {
                 method:  'POST',
                 headers: { Authorization: `Bearer ${accessToken}` },
-            })
+            }, 3_000)
         } catch {
             // Network error — still clear cookies below
         }

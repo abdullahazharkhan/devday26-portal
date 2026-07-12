@@ -14,11 +14,13 @@ type OcrWorker = {
             confidence?: number
         }
     }>
+    terminate?: () => Promise<unknown>
 }
 
 const MONTH_PATTERN = '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)'
 
 let workerPromise: Promise<OcrWorker> | null = null
+let workerIdleTimer: ReturnType<typeof setTimeout> | null = null
 
 function clamp(value: number, min: number, max: number): number {
     return Math.min(Math.max(value, min), max)
@@ -125,8 +127,13 @@ async function preprocessImage(imageSource: string): Promise<string> {
 }
 
 async function getWorker(): Promise<OcrWorker> {
+    if (workerIdleTimer) {
+        clearTimeout(workerIdleTimer)
+        workerIdleTimer = null
+    }
+
     if (!workerPromise) {
-        workerPromise = (async () => {
+        const pendingWorker = (async () => {
             const { createWorker } = await import('tesseract.js')
             const worker = await createWorker('eng')
             // preserve_interword_spaces helps Tesseract keep word spacing that
@@ -136,8 +143,29 @@ async function getWorker(): Promise<OcrWorker> {
             } catch { /* older Tesseract versions may not support this */ }
             return worker as OcrWorker
         })()
+        workerPromise = pendingWorker
+        pendingWorker.catch(() => {
+            if (workerPromise === pendingWorker) workerPromise = null
+        })
     }
     return workerPromise
+}
+
+function terminateWorkerAfterIdle(): void {
+    if (workerIdleTimer) clearTimeout(workerIdleTimer)
+
+    workerIdleTimer = setTimeout(async () => {
+        const idleWorker = workerPromise
+        workerPromise = null
+        workerIdleTimer = null
+
+        try {
+            const worker = await idleWorker
+            await worker?.terminate?.()
+        } catch {
+            // The worker may already have failed or terminated.
+        }
+    }, 60_000)
 }
 
 function normalizeRawText(text: string): string {
@@ -384,12 +412,16 @@ export function extractPaymentProofFromText(rawText: string, ocrConfidence = 0):
 }
 
 export async function extractPaymentProofDetails(imageSource: string): Promise<ExtractedPaymentProof> {
-    const worker      = await getWorker()
-    // Run preprocessing first — improves OCR on coloured mobile screenshots
-    const processed   = await preprocessImage(imageSource)
-    const result      = await worker.recognize(processed)
-    const text        = result.data?.text ?? ''
-    const confidence  = result.data?.confidence ?? 0
+    try {
+        const worker      = await getWorker()
+        // Run preprocessing first — improves OCR on coloured mobile screenshots
+        const processed   = await preprocessImage(imageSource)
+        const result      = await worker.recognize(processed)
+        const text        = result.data?.text ?? ''
+        const confidence  = result.data?.confidence ?? 0
 
-    return extractPaymentProofFromText(text, confidence)
+        return extractPaymentProofFromText(text, confidence)
+    } finally {
+        terminateWorkerAfterIdle()
+    }
 }

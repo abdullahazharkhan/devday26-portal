@@ -2,9 +2,10 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, type MouseEvent as ReactMouseEvent } from 'react'
 import Image from 'next/image'
 import { useAuthStore } from '@/lib/stores/authStore'
+import { apiFetch } from '@/lib/apiClient'
 import teamConfig, { ALL_ACTIONS } from './tabsConfig'
 
 type VisibleTab = {
@@ -80,7 +81,7 @@ export default function DashboardNav() {
     useEffect(() => {
         if (!hasMounted) return
         if (!isStale()) return    // fresh data — skip network call
-        fetch('/api/auth/me')
+        apiFetch('/api/auth/me')
             .then((r) => r.json())
             .then((json) => {
                 if (json.success && json.data) setUser(json.data)
@@ -172,6 +173,15 @@ export default function DashboardNav() {
         return `/dashboard/${teamSlug}?${params.toString()}`
     }
 
+    const handleTabClick = (event: ReactMouseEvent<HTMLAnchorElement>, href: string) => {
+        // Preserve normal browser behavior for new-tab and modified clicks.
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+
+        event.preventDefault()
+        window.history.pushState(null, '', href)
+        setIsActionsPanelOpen(false)
+    }
+
     // All hooks must be called before any conditional return
     useEffect(() => {
         const handler = (e: MouseEvent) => {
@@ -252,7 +262,7 @@ export default function DashboardNav() {
                                         setIsLoggingOut(true)
                                         setDropdownOpen(false)
                                         try {
-                                            await fetch('/api/auth/logout', { method: 'POST' })
+                                            await apiFetch('/api/auth/logout', { method: 'POST' })
                                         } finally {
                                             clearUser()
                                             router.push('/login')
@@ -369,6 +379,8 @@ export default function DashboardNav() {
                                                         <Link
                                                             key={tab.action}
                                                             href={buildTabHref(tab.action)}
+                                                            prefetch={false}
+                                                            onClick={(event) => handleTabClick(event, buildTabHref(tab.action))}
                                                             className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-[10px] sm:text-[11px] tracking-[0.1rem] uppercase border transition-colors ${
                                                                 isActive
                                                                     ? 'text-white bg-[#311D1D] border-primaryred'

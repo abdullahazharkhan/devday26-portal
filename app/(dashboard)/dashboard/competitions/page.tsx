@@ -1,8 +1,5 @@
-import DashboardPageContent from '../components/DashboardPageContent'
+import DashboardPageShell from '../components/DashboardPageShell'
 
-type Props = { searchParams: Promise<{ tab?: string }> }
-
-export default async function CompetitionsPage({ searchParams }: Props) {
-    const { tab } = await searchParams
-    return <DashboardPageContent tabParam={tab} />
+export default function CompetitionsPage() {
+    return <DashboardPageShell />
 }

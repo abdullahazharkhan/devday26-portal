@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import DataTable, { Column } from './DataTable'
-import { extractPaymentProofDetails, type ExtractedPaymentProof } from '@/lib/paymentProofOcr'
+import type { ExtractedPaymentProof } from '@/lib/paymentProofOcr'
 import { toast } from 'sonner'
+import { apiFetch } from '@/lib/apiClient'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -209,6 +210,7 @@ function RegistrationDetailPanel({
         setIsRunningOcr(true)
         setOcrError(null)
         try {
+            const { extractPaymentProofDetails } = await import('@/lib/paymentProofOcr')
             const result = await extractPaymentProofDetails(paymentProofUrl)
             setOcrResult(result)
         } catch (err) {
@@ -220,6 +222,7 @@ function RegistrationDetailPanel({
     }, [])
 
     useEffect(() => {
+        const controller = new AbortController()
         setLoading(true)
         setError(null)
         setIsEditingPayment(false)
@@ -228,14 +231,21 @@ function RegistrationDetailPanel({
         setIsRunningOcr(false)
         setOcrError(null)
         setShowRawOcrModal(false)
-        fetch(`/api/registrations/${registrationId}`)
+        apiFetch(`/api/registrations/${registrationId}`, { signal: controller.signal })
             .then((r) => r.json())
             .then((json) => {
+                if (controller.signal.aborted) return
                 if (json.success) setDetail(json.data)
                 else setError(json.message === 'Registration not found.' ? 'This registration no longer exists. It may have been deleted.' : json.message ?? 'Failed to load registration.')
             })
-            .catch(() => setError('Could not reach the server.'))
-            .finally(() => setLoading(false))
+            .catch(() => {
+                if (!controller.signal.aborted) setError('Could not reach the server.')
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setLoading(false)
+            })
+
+        return () => controller.abort()
     }, [registrationId])
 
     useEffect(() => {
@@ -246,11 +256,6 @@ function RegistrationDetailPanel({
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
     }, [isProofOpen])
-
-    useEffect(() => {
-        if (!detail?.paymentProofUrl) return
-        runProofOcr(detail.paymentProofUrl)
-    }, [detail?.id, detail?.paymentProofUrl, runProofOcr])
 
     const memberColumns: Column<RegistrationMember>[] = [
         {
@@ -513,7 +518,7 @@ function RegistrationDetailPanel({
                                                 if (!detail) return
                                                 setIsUpdatingPayment(true)
                                                 try {
-                                                    const res = await fetch(
+                                                    const res = await apiFetch(
                                                         `/api/registrations/${detail.id}/payment-status`,
                                                         {
                                                             method: 'POST',
@@ -590,7 +595,7 @@ function RegistrationDetailPanel({
                         <div className="border border-primaryred-muted bg-[#1c1010] p-4 sm:p-5 flex flex-col gap-4">
                             <div className="flex items-center justify-between gap-3 flex-wrap">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] tracking-[0.2em] text-primaryred font-bold">AUTO_OCR_SCAN</span>
+                                    <span className="text-[10px] tracking-[0.2em] text-primaryred font-bold">PAYMENT_OCR_SCAN</span>
                                     {isRunningOcr && (
                                         <span className="flex items-center gap-1.5 text-[10px] tracking-widest text-[#C4C4C4]">
                                             <span className="inline-block w-2.5 h-2.5 border border-[#C4C4C4] border-t-transparent rounded-full animate-spin" />
@@ -663,7 +668,7 @@ function RegistrationDetailPanel({
                                     disabled={isRunningOcr}
                                     className="text-[10px] tracking-widest text-primaryred border border-primaryred px-3 py-1.5 hover:bg-primaryred hover:text-white transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
-                                    {isRunningOcr ? 'SCANNING...' : 'RETRY OCR'}
+                                    {isRunningOcr ? 'SCANNING...' : ocrResult ? 'RETRY OCR' : 'RUN OCR'}
                                 </button>
                                 {ocrResult && !isRunningOcr && (
                                     <button
@@ -1072,7 +1077,7 @@ function CompetitionTable({
 
     const isAll = competition === null
 
-    const fetchRows = useCallback(async () => {
+    const fetchRows = useCallback(async (signal?: AbortSignal) => {
         setIsLoading(true)
         try {
             const params = new URLSearchParams()
@@ -1082,10 +1087,10 @@ function CompetitionTable({
             if (search)       params.set('search', search)
             if (statusFilter) params.set('status', statusFilter)
 
-            const res  = await fetch(`/api/registrations?${params}`)
+            const res  = await apiFetch(`/api/registrations?${params}`, { signal })
             const json = await res.json()
+            if (signal?.aborted) return
             if (json.success) {
-                console.log(json.data)
                 setRows(json.data)
                 setMeta(json.meta)
                 setExpandedPaymentId((prev) => (
@@ -1096,11 +1101,15 @@ function CompetitionTable({
         } catch {
             // silent
         } finally {
-            setIsLoading(false)
+            if (!signal?.aborted) setIsLoading(false)
         }
     }, [competition, page, search, statusFilter, onRowsLoaded])
 
-    useEffect(() => { fetchRows() }, [fetchRows])
+    useEffect(() => {
+        const controller = new AbortController()
+        fetchRows(controller.signal)
+        return () => controller.abort()
+    }, [fetchRows])
 
     const handlePaymentRowToggle = useCallback((row: RegistrationRow) => {
         setExpandedPaymentId((prev) => {
@@ -1114,7 +1123,7 @@ function CompetitionTable({
     const handleInlinePaymentUpdate = useCallback(async (row: RegistrationRow) => {
         setIsUpdatingPayment(true)
         try {
-            const res = await fetch(`/api/registrations/${row.id}/payment-status`, {
+            const res = await apiFetch(`/api/registrations/${row.id}/payment-status`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1402,39 +1411,45 @@ export default function ViewRegistrationsTab() {
     }, [])
 
     // Search functionality
-    const performSearch = useCallback(async (query: string) => {
-        if (!query.trim()) {
+    const performSearch = useCallback(async (query: string, signal: AbortSignal) => {
+        if (query.trim().length < 2) {
             setSearchResults([])
+            setIsSearching(false)
             return
         }
 
         setIsSearching(true)
         try {
-            const res = await fetch(`/api/registrations/search-members?query=${encodeURIComponent(query)}`)
+            const res = await apiFetch(`/api/registrations/search-members?query=${encodeURIComponent(query)}`, { signal })
             const json = await res.json()
+            if (signal.aborted) return
             if (json.success) {
                 setSearchResults(json.data)
             } else {
                 setSearchResults([])
             }
         } catch {
-            setSearchResults([])
+            if (!signal.aborted) setSearchResults([])
         } finally {
-            setIsSearching(false)
+            if (!signal.aborted) setIsSearching(false)
         }
     }, [])
 
     useEffect(() => {
+        const controller = new AbortController()
         const timeoutId = setTimeout(() => {
-            performSearch(searchQuery)
+            performSearch(searchQuery, controller.signal)
         }, 300)
-        return () => clearTimeout(timeoutId)
+        return () => {
+            clearTimeout(timeoutId)
+            controller.abort()
+        }
     }, [searchQuery, performSearch])
 
     // ── Fetch competitions (once) ──────────────────────────────────────────
     useEffect(() => {
         setCompsLoading(true)
-        fetch('/api/registrations/competitions')
+        apiFetch('/api/registrations/competitions')
             .then((r) => r.json())
             .then((json) => {
                 if (json.success) {
@@ -1471,7 +1486,7 @@ export default function ViewRegistrationsTab() {
                         if (tblSearch) params.set('search', tblSearch)
                         if (tblStatusFilter) params.set('status', tblStatusFilter)
                         try {
-                            const res  = await fetch(`/api/registrations?${params}`)
+                            const res  = await apiFetch(`/api/registrations?${params}`)
                             const json = await res.json()
                             if (json.success && json.data.length > 0) {
                                 const newIds: string[] = json.data.map((r: RegistrationRow) => r.id)

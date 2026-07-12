@@ -11,8 +11,9 @@ type RouteContext = { params: Promise<{ id: string }> }
  */
 export async function GET(req: NextRequest, ctx: RouteContext) {
     const { id } = await ctx.params
+    const accessToken = req.cookies.get('access_token')?.value
 
-    const cached = getCachedDetail(id)
+    const cached = getCachedDetail(id, accessToken)
     if (cached) return NextResponse.json(cached, { status: 200 })
 
     try {
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
         if (status === 401) return unauthorizedResponse()
 
         if (status === 200 && (data as { success?: boolean }).success) {
-            setCachedDetail(id, data)
+            setCachedDetail(id, accessToken, data)
         }
 
         const response = NextResponse.json(data, { status })
