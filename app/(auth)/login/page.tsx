@@ -164,13 +164,7 @@ const Login = () => {
                 </button>
 
                 <p className='text-sm text-foreground-muted text-center'>
-                    if you don&apos;t have an account,{' '}
-                    <Link
-                        href="/login"
-                        className='text-primaryred hover:text-primaryred/80 transition-colors duration-200'
-                    >
-                        you don&apos;t have an account,
-                    </Link>
+                    Please login with the credentials shared by your respective team head.
                 </p>
 
             </form>
